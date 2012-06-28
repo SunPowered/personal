@@ -1,0 +1,5 @@
+*Dummy RC Circuit file
+Vin 1 0 DC 0 AC SIN(0 1 100Hz)
+R1 1 2 1k
+C1 2 0 3
+
