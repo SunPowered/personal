@@ -1,0 +1,15 @@
+* LED Subcircuits
+.subckt LuxStar-1watt a c
+* 06/2002 MrAl
+d1 a c dx
+.model dx d is=2e-17 n=3.40 RS=0.1 RL=1e6 cjo=100p
+.ends
+*
+*
+.SUBCKT LED-Nichia pos neg
+*MrAl
+VM pos 1 0
+BX 1 2 v = -i(VM)*i(VM)*29.98
+D1 2 neg DX
+.MODEL DX D(IS=7.61384e-013 N=4.9954 RS=17.14)
+.ENDS

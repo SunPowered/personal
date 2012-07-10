@@ -1,0 +1,21 @@
+<project name="TvBCircuitTools" default="compile">
+
+  <taskdef resource="pyAntTasks.properties"/>
+
+  <property name="src.dir" value="src"/>
+  
+  <property name="tests.dir" value="unittests"/>
+	
+  <target name="compile">
+    <py-compile dir="${src.dir}" pythonpath="${src.dir}" optimize="0"/>
+  </target>
+
+  <target name="tests" depends="compile">
+    <py-test pythonpath="${src.dir}" dir="${tests.dir}">
+    	<fileset dir="${tests.dir}">
+    		<include name="**/test*"/>
+    	</fileset>
+    </py-test>
+  </target>
+</project>
+
