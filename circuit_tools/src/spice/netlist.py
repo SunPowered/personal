@@ -1,6 +1,7 @@
 '''
-Created on 2012-07-08
-
+@package spice.netlist
+@file spice/netlist.py
+@brief The SPICE netlist module
 @author: timvb
 '''
 import os
@@ -18,22 +19,21 @@ class SpiceNetlistError(NetlistError):
     pass
 class SpiceNetlist(Netlist):
     '''
-    A SPICE netlist object.
-    
-    Takes a different default file extension than a regular netlist.
+    @brief A SPICE netlist object.
+    @details Takes a different default file extension than a regular netlist.
     Also has the ability to handle variables, parsing and substitution into a temp path
     '''
     _netlist_scheme = _netlist_scheme
 
     def __init__(self, *args, **kwargs):
         '''
-        Constructor
+        @note Takes the same parameters as a schematic.netlist.Netlist object
         '''
         if not kwargs.get('logger', None):
             kwargs['logger']=log.getDefaultLogger('spice.netlist.SpiceNetlist')
             
-        Netlist.__init__(self, *args, netlist_scheme=_netlist_scheme, type_=_netlist_type, **kwargs)
-        
+        Netlist.__init__(self, *args, netlist_scheme=_netlist_scheme, **kwargs)
+        self.setType(_netlist_type)  
         self._default_netlist_extension = _default_netlist_extension
         #Template
         self.template = string.Template(open(self.file_path, 'r').read())   
@@ -51,20 +51,37 @@ class SpiceNetlist(Netlist):
         self.parseVariables()
         
     def getTemplate(self):
+        '''
+        @brief return the current netlist template object
+        @return string Template object
+        '''
         return self.template
            
     def getTempFilePath(self):
+        '''
+        @brief return the temporary file path
+        @return str file path
+        '''
         return self.temp_file_path
     
     def getTempFileName(self):
+        '''
+        @brief return the temporary file name
+        @return str file path 
+        '''
         return self.temp_file_name
     
     def getVariables(self):
+        '''
+        @brief return the circuit variables
+        @return list 
+        '''
         return self.variables
     
     def parseVariables(self):
         '''
-        parses the current netlist file and returns a list of variables in the file
+        @brief parses the current netlist file and returns a list of variables in the file
+        @return list
         '''
         try:
             variables = self.variable_re.findall(open(self.file_path, 'r').read())
@@ -78,7 +95,10 @@ class SpiceNetlist(Netlist):
         
     def substituteVariables(self, variables):
         '''
-        A safe substitution of variables into a netlist file.  Saves to the temp file attribute
+        @brief A safe substitution of variables into a netlist file.  
+        @param variables A dict of variable mappings to substitute
+        @return str file path
+        @details Saves to the temp file attribute
         '''
         
         #Remove temp file if it exists
@@ -97,4 +117,10 @@ class SpiceNetlist(Netlist):
         return self.temp_file_path
 
 def generateSpiceNetlistFilePath(file_path):
+    '''
+    @brief helper function to convert a file path to a netlist file.
+    @param file_path The file path of the circuit file to convert
+    @return str A SPICE compatible file path
+    @details Useful in converting a circuit to a netlist
+    '''
     return generateNetlistFilePath(file_path, default_extension=_default_netlist_extension)    

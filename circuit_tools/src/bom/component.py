@@ -1,7 +1,8 @@
 '''
-Created on 2012-07-08
-
+@package bom.component
+@file bom/component.py
 @author: timvb
+@brief Contains the Bill of Materials Component object
 '''
 from utils import config
 from schematic.component import Component, ComponentError, ComponentList, ComponentListError 
@@ -13,32 +14,38 @@ class BOMComponentError(ComponentError):
 
 class BOMComponent(Component):
     '''
-    A Bill Of Materials Component.
-    
+    @brief A Bill Of Materials Component.
+    @details
     Differences from a Schematic Component is that multiple quantities are allowed.  
-    
-    Unique attributes are manufacturer and part-number and device
+    Required attributes are determined in the utils.config.BOM_PARSE_MODEL object
     '''
     
     _required_attributes = config.BOM_PARSE_MODEL["REQUIRED_ATTRIBUTES"]
     _ignored_attributes = config.BOM_PARSE_MODEL["IGNORED_ATTRIBUTES"]
     
     def __init__(self, **kwargs):
-        
-        
+        '''
+        @brief BOM Component constructor method
+        @param kwargs A collection of attribute value pairs to be saved to the component
+        '''        
         [kwargs.__setitem__(attr, None) for attr in self._required_attributes if attr not in kwargs.keys()]
         Component.__init__(self, **kwargs)
         self.quantity = 1
         
         #self._ignore_attrs = ["quantity"]
     def __repr__(self):
-        
-        return "%s[%s - %s][%i]"%(str(self.device), str(self.manufacturer), str(self.part_number), self.quantity)
+        '''
+        @brief repr override
+        @todo Only print required attributes
+        '''
+        return "%s[%s][%s - %s](%i)"%(str(self.device), str(self.value), str(self.manufacturer), str(self.part_number), self.quantity)
     
-    def addAnother(self, refdes=None):
+    def addAnother(self):
+        '''
+        @brief Increase the quantity by one
+        '''
         self.quantity += 1
-        if refdes:
-            self.setAttribute('refdes', refdes)
+        
     '''
     def setAttribute(self, attribute, value):
         if attribute == "refdes":
@@ -47,12 +54,18 @@ class BOMComponent(Component):
         super(BOMComponent, self).setAttribute(attribute, value)
     '''
     def getQuantity(self):
+        '''
+        @brief return the current quantity
+        @return int
+        '''
         return self.quantity
     
 
                 
 class BOMComponentList(ComponentList):
-    
+    '''
+    @brief An object for storing a list of BOM components
+    '''
     
     
     def append(self, obj):

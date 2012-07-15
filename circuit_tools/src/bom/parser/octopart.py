@@ -1,21 +1,8 @@
-
 """ 
-A simple Python client frontend to the Octopart public REST API.
-
+@package bom.parser.octopart
+@file bom/parser/octopart.py
+@brief A simple Python client frontend to the Octopart public REST API.
 @author: Joe Baker <jbaker@alum.wpi.edu>
-
-@license: 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-  http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
 """
 
 __version__ = "0.5.5"
@@ -31,7 +18,7 @@ import datetime
 
 class OctopartException(Exception):
 	
-	"""Various errors that can be raised by the Octopart API."""
+	"""@brief Various errors that can be raised by the Octopart API."""
 	
 	__slots__ = ["arguments", "arg_types", "arg_ranges", "code"]
 	errors = {0: 'Required argument missing from method call.', \
@@ -61,7 +48,9 @@ class OctopartException(Exception):
 		return string
 
 class OctopartBrand(object):
-	
+	'''
+	@brief A custom Brand object
+	'''
 	@classmethod
 	def new_from_dict(cls, brand_dict):
 		new = cls(brand_dict['id'], brand_dict['displayname'], brand_dict['homepage_url'])
@@ -77,7 +66,7 @@ class OctopartBrand(object):
 		return self._id
 	
 	def equals_json(self, resource):
-		"""Checks the object for data equivalence to a JSON Brand resource."""
+		"""@brief Checks the object for data equivalence to a JSON Brand resource."""
 		
 		if isinstance(resource, DictType) and resource.get('__class__') == 'Brand': 
 			if self.id != resource.get('id'):
@@ -115,7 +104,9 @@ class OctopartBrand(object):
 		return ''.join(('Brand ', str(self.id), ': ', self.displayname, ' (', self.homepage_url, ')'))
 
 class OctopartCategory(object):
-	
+	'''
+	@brief An Octopart category object
+	'''
 	@classmethod
 	def new_from_dict(cls, category_dict):
 		new_dict = copy.deepcopy(category_dict)
@@ -125,21 +116,35 @@ class OctopartCategory(object):
 		return new
 	
 	def __init__(self, _id, parent_id, nodename, images, children_ids, ancestor_ids, ancestors, num_parts):
-		self._id = _id
-		self.parent_id = parent_id
-		self.nodename = nodename
-		self.images = images	# List of dicts of URLs
-		self.children_ids = children_ids	# List of child node ids
-		self.ancestor_ids = ancestor_ids	# Sorted list of ancestor node ids (immediate parent first)
-		self.ancestors = ancestors	# Sorted list of category objects
-		self.num_parts = num_parts
+		'''
+		@param _id 
+		@param parent_id
+		@param nodename
+		@param images List of dicts of URLs
+		@param children_ids List of child node ids
+		@param ancestor_ids Sorted list of ancestor node ids (immediate parent first)
+		@param ancestors Sorted list of category objects
+		@param num_parts
+		'''
+        self._id = _id
+        self.parent_id = parent_id
+        self.nodename = nodename
+        self.images = images	# List of dicts of URLs
+        self.children_ids = children_ids	# List of child node ids
+        self.ancestor_ids = ancestor_ids	# Sorted list of ancestor node ids (immediate parent first)
+        self.ancestors = ancestors	# Sorted list of category objects
+        self.num_parts = num_parts
 	
 	@property
 	def _id(self):
 		return self._id
 	
 	def equals_json(self, resource):
-		"""Checks the object for data equivalence to a JSON Category resource."""
+		"""
+		@brief Checks the object for data equivalence to a JSON Category resource.
+		@param resource The resource to check
+		@return bool
+		"""
 		
 		if isinstance(resource, DictType) and resource.get('__class__') == 'Category': 
 			if self.id != resource.get('id'):
@@ -197,10 +202,15 @@ class OctopartCategory(object):
 		return ''.join(('Category ', str(self.id), ': ', self.nodename))
 
 class OctopartPart(object):
-	
-	@classmethod
-	def new_from_dict(cls, part_dict):
-		"""Constructor for use with JSON resource dictionaries."""
+    '''
+	@brief An octopart Part
+	'''
+    @classmethod
+    def new_from_dict(cls, part_dict):
+		"""
+		@brief Constructor for use with JSON resource dictionaries.
+		@param part_dict
+		"""
 		
 		copied_dict = part_dict.copy()
 		uid = copied_dict.pop('uid')
@@ -209,13 +219,18 @@ class OctopartPart(object):
 		detail_url = copied_dict.pop('detail_url')
 		return cls(uid, mpn, manufacturer, detail_url, **copied_dict)
 	
-	def __init__(self, uid, mpn, manufacturer, detail_url, **kwargs):
-		# If class data is in dictionary format, convert everything to class instances 
-		# Otherwise, assume it is already in class format and do nothing
-		args = copy.deepcopy(kwargs)
-		if type(manufacturer) is DictType:
+    def __init__(self, uid, mpn, manufacturer, detail_url, **kwargs):
+        '''
+        @param uid
+        @param mpn
+        @param manufacturer
+        @param detai_url
+        @param **kwargs
+        '''
+        args = copy.deepcopy(kwargs)
+        if type(manufacturer) is DictType:
 			manufacturer = OctopartBrand.new_from_dict(copy.deepcopy(manufacturer))
-		for offer in args.get('offers', []):
+        for offer in args.get('offers', []):
 			if type(offer['supplier']) is DictType:
 				offer['supplier'] = OctopartBrand.new_from_dict(offer['supplier'])
 			# Convert ISO 8601 datetime strings to datetime objects
@@ -225,27 +240,27 @@ class OctopartPart(object):
 					offer['update_ts'] = offer['update_ts'][0:-1]
 				offer['update_ts'] = datetime.datetime.strptime(offer['update_ts'], '%Y-%m-%dT%H:%M:%S')
 			
-		for spec in args.get('specs', []):
+        for spec in args.get('specs', []):
 			if type(spec['attribute']) is DictType:
 				spec['attribute'] = OctopartPartAttribute.new_from_dict(spec['attribute'])
 		
-		self._uid = uid
-		self._mpn = mpn
-		self.manufacturer = manufacturer
-		self.detail_url = detail_url
-		self.avg_price = args.get('avg_price')
-		self.avg_avail = args.get('avg_avail')
-		self.market_status = args.get('market_status')
-		self.num_suppliers = args.get('num_suppliers')
-		self.num_authsuppliers = args.get('num_authsuppliers')
-		self.short_description = args.get('short_description', '')
-		self.category_ids = args.get('category_ids', [])
-		self.images = args.get('images', [])
-		self.datasheets = args.get('datasheets', [])
-		self.descriptions = args.get('descriptions', [])
-		self.hyperlinks = args.get('hyperlinks', {})
-		self.offers = args.get('offers', [])
-		self.specs = args.get('specs', [])
+        self._uid = uid
+        self._mpn = mpn
+        self.manufacturer = manufacturer
+        self.detail_url = detail_url
+        self.avg_price = args.get('avg_price')
+        self.avg_avail = args.get('avg_avail')
+        self.market_status = args.get('market_status')
+        self.num_suppliers = args.get('num_suppliers')
+        self.num_authsuppliers = args.get('num_authsuppliers')
+        self.short_description = args.get('short_description', '')
+        self.category_ids = args.get('category_ids', [])
+        self.images = args.get('images', [])
+        self.datasheets = args.get('datasheets', [])
+        self.descriptions = args.get('descriptions', [])
+        self.hyperlinks = args.get('hyperlinks', {})
+        self.offers = args.get('offers', [])
+        self.specs = args.get('specs', [])
 	
 	@property
 	def uid(self):
@@ -263,10 +278,11 @@ class OctopartPart(object):
 	
 	def equals_json(self, resource, hide_datasheets=False, hide_descriptions=False, hide_images=False, \
 				hide_offers=False, hide_unauthorized_offers=False, hide_specs=False):
-		"""Checks the object for data equivalence to a JSON Part resource."""
+		"""@brief Checks the object for data equivalence to a JSON Part resource.
+		@todo Fill in params here"""
 		
 		def compare_offers(class_offer, json_offer):
-			"""Compares two offers.
+			"""@brief Compares two offers.
 			
 			@param class_offer: An offer from an OctopartPart instance.
 			@param json_offer: An offer from a JSON Part resource.
@@ -285,7 +301,7 @@ class OctopartPart(object):
 			return True
 		
 		def compare_specs(class_spec, json_spec):
-			"""Compares two specs.
+			"""@brief Compares two specs.
 			
 			@param class_spec: A spec from an OctopartPart instance.
 			@param json_spec: A spec from a JSON Part resource.
@@ -400,26 +416,39 @@ class OctopartPart(object):
 		return ''.join(('Part ', str(self.uid), ': ', str(self.manufacturer), ' ', self.mpn))
 
 class OctopartPartAttribute(object):
-	TYPE_TEXT = 'text'
-	TYPE_NUMBER = 'number'
+    '''
+    @brief Octopart Part Attribute
+    '''
+    TYPE_TEXT = 'text'
+    TYPE_NUMBER = 'number'
 	
-	@classmethod
-	def new_from_dict(cls, attribute_dict):
-		new = cls(attribute_dict['fieldname'], attribute_dict['displayname'], attribute_dict['type'], attribute_dict.get('metadata', {}))
-		return new
-	
-	def __init__(self, fieldname, displayname, attribute_type, metadata):
-		self._fieldname = fieldname
-		self.displayname = displayname
-		self.type = attribute_type
-		self.metadata = metadata
+    @classmethod
+    def new_from_dict(cls, attribute_dict):
+    	new = cls(attribute_dict['fieldname'], attribute_dict['displayname'], attribute_dict['type'], attribute_dict.get('metadata', {}))
+    	return new
+    
+    def __init__(self, fieldname, displayname, attribute_type, metadata):
+        '''
+        @param fieldname
+        @param displayname
+        @param attribute_type
+        @param metadata
+        '''
+    	self._fieldname = fieldname
+    	self.displayname = displayname
+    	self.type = attribute_type
+    	self.metadata = metadata
 	
 	@property
 	def fieldname(self):
 		return self._fieldname
 	
 	def equals_json(self, resource):
-		"""Checks the object for data equivalence to a JSON PartAttribute resource."""
+		"""
+		@brief Checks the object for data equivalence to a JSON PartAttribute resource.
+		@param resource
+		@return bool
+		"""
 		
 		if isinstance(resource, DictType) and resource.get('__class__') == 'PartAttribute': 
 			if self.fieldname != resource.get('fieldname'):
@@ -467,18 +496,23 @@ class OctopartPartAttribute(object):
 
 class Octopart(object):
 	
-	"""A simple client frontend to tho Octopart public REST API. 
+    """@brief A simple client frontend to tho Octopart public REST API. 
+    @details
+    For detailed API documentation, refer to http://octopart.com/api/documentation.
+    """
+    
+    api_url = 'http://octopart.com/api/v2/'
+    __slots__ = ["apikey", "callback", "pretty_print"]
 	
-	For detailed API documentation, refer to http://octopart.com/api/documentation.
-	"""
-	
-	api_url = 'http://octopart.com/api/v2/'
-	__slots__ = ["apikey", "callback", "pretty_print"]
-	
-	def __init__(self, apikey=None, callback=None, pretty_print=False):
-		self.apikey = apikey
-		self.callback = callback
-		self.pretty_print = pretty_print
+    def __init__(self, apikey=None, callback=None, pretty_print=False):
+        '''
+        @param apikey
+        @param callback
+        @param pretty_print
+        '''
+        self.apikey = apikey
+        self.callback = callback
+        self.pretty_print = pretty_print
 	
 	def _validate_args(self, args, arg_types, arg_ranges):
 		""" Checks method arguments for syntax errors.
@@ -487,7 +521,7 @@ class Octopart(object):
 		@param arg_types: Dictionary which contains the correct data type for each argument.
 		@param arg_ranges: Dictionary which contains range() calls for any numeric arguments with a limited range.
 		Can also be used to constrain string argument length. For string arguments, contains a (min, max) pair.
-		@raise OctopartException: If any syntax errors are found.
+		@throw OctopartException: If any syntax errors are found.
 		"""
 		
 		valid_args = frozenset(arg_types.keys())
@@ -518,7 +552,7 @@ class Octopart(object):
 			raise OctopartException(args, arg_types, arg_ranges, 3)
 	
 	def _make_url(self, method, args):
-		"""Constructs the URL to pass to _get().
+		"""@brief Constructs the URL to pass to _get().
 		
 		@param method: String containing the method path, such as "parts/search".
 		@param args: Dictionary of arguments to pass to the API method.
@@ -549,7 +583,7 @@ class Octopart(object):
 		return req_url
 	
 	def _get(self, req_url):
-		"""Makes a GET request with the given API method and arguments.
+		"""@brief Makes a GET request with the given API method and arguments.
 		
 		@param req_url: Complete API request URL. 
 		@return: JSON response from server.
@@ -560,8 +594,8 @@ class Octopart(object):
 		return json_obj
 	
 	def _translate_periods(self, args):
-		"""Translates Python-friendly keyword arguments to valid Octopart API arguments.
-		
+		"""@brief Translates Python-friendly keyword arguments to valid Octopart API arguments.
+		@details
 		Several Octopart API arguments contain a period in their name.
 		Unfortunately, trying to unpack a keyword argument in a Python function with 
 		a period in the argument name will cause a syntax code: 
@@ -606,10 +640,10 @@ class Octopart(object):
 		return args
 	
 	def _categories_get_args(self, _id):
-		"""Validate and format arguments passed to categories_get().
+		"""@brief Validate and format arguments passed to categories_get().
 		
 		@return: Dictionary of valid arguments to pass to _make_url().
-		@raise OctopartException: Raised if invalid argument syntax is passed in.
+		@throw OctopartException: Raised if invalid argument syntax is passed in.
 		"""
 		
 		arg_types = {'id': (IntType, LongType)}
@@ -620,7 +654,7 @@ class Octopart(object):
 		return args
 
 	def categories_get(self, _id):
-		"""Fetch a category object by its id. 
+		"""@brief Fetch a category object by its id. 
 		
 		@return: A pair containing:
 			-The raw JSON result dictionary. 
@@ -645,10 +679,10 @@ class Octopart(object):
 			return None
 	
 	def _categories_get_multi_args(self, ids):
-		"""Validate and format arguments passed to categories_get_multi().
+		"""@brief Validate and format arguments passed to categories_get_multi().
 		
 		@return: Dictionary of valid arguments to pass to _make_url().
-		@raise OctopartException: Raised if invalid argument syntax is passed in.
+		@throw OctopartException: Raised if invalid argument syntax is passed in.
 		"""
 		
 		arg_types = {'ids': ListType}
@@ -662,7 +696,7 @@ class Octopart(object):
 		return args
 	
 	def categories_get_multi(self, ids):
-		"""Fetch multiple category objects by their ids. 
+		"""@brief Fetch multiple category objects by their ids. 
 		
 		@return: A pair containing:
 			-The raw JSON result dictionary. 
@@ -687,10 +721,10 @@ class Octopart(object):
 			return None
 	
 	def _categories_search_args(self, args):
-		"""Validate and format arguments passed to categories_search().
+		"""@brief Validate and format arguments passed to categories_search().
 		
 		@return: Dictionary of valid arguments to pass to _make_url().
-		@raise OctopartException: Raised if invalid argument syntax is passed in.
+		@throw OctopartException: Raised if invalid argument syntax is passed in.
 		"""
 		
 		arg_types = {'q': StringType, 'start' : IntType, 'limit' : IntType, 'ancestor_id' : IntType}
@@ -700,7 +734,7 @@ class Octopart(object):
 		return args	
 	
 	def categories_search(self, **kwargs):
-		"""Execute search over all result objects. 
+		"""@brief Execute search over all result objects. 
 		
 		@return: A pair containing:
 			-The raw JSON result dictionary. 
@@ -726,10 +760,10 @@ class Octopart(object):
 			return None
 	
 	def _parts_get_args(self, uid, args):
-		"""Validate and format arguments passed to parts_get().
+		"""@brief Validate and format arguments passed to parts_get().
 		
 		@return: Dictionary of valid arguments to pass to _make_url().
-		@raise OctopartException: Raised if invalid argument syntax is passed in.
+		@throw OctopartException: Raised if invalid argument syntax is passed in.
 		"""
 		
 		arg_types = {'uid': (IntType, LongType), \
@@ -747,7 +781,7 @@ class Octopart(object):
 		return args
 	
 	def parts_get(self, uid, **kwargs):
-		"""Fetch a part object by its id.
+		"""@brief Fetch a part object by its id.
 		
 		@return: A pair containing:
 			-The raw JSON result dictionary. 
@@ -772,10 +806,10 @@ class Octopart(object):
 			return None
 	
 	def _parts_get_multi_args(self, uids, args):
-		"""Validate and format arguments passed to parts_get_multi().
+		"""@brief Validate and format arguments passed to parts_get_multi().
 		
 		@return: Dictionary of valid arguments to pass to _make_url().
-		@raise OctopartException: Raised if invalid argument syntax is passed in.
+		@throw OctopartException: Raised if invalid argument syntax is passed in.
 		"""
 		
 		arg_types = {'uids': ListType, \
@@ -796,7 +830,7 @@ class Octopart(object):
 		return args
 	
 	def parts_get_multi(self, uids, **kwargs):
-		"""Fetch multiple part objects by their ids.
+		"""@brief Fetch multiple part objects by their ids.
 		
 		@return: A pair containing:
 			-The raw JSON result dictionary. 
@@ -821,10 +855,10 @@ class Octopart(object):
 			return None
 	
 	def _parts_search_args(self, args):
-		"""Validate and format arguments passed to parts_search().
+		"""@brief Validate and format arguments passed to parts_search().
 		
 		@return: Dictionary of valid arguments to pass to _make_url().
-		@raise OctopartException: Raised if invalid argument syntax is passed in.
+		@throw OctopartException: Raised if invalid argument syntax is passed in.
 		"""
 		
 		arg_types = {'q': StringType, \
@@ -892,7 +926,7 @@ class Octopart(object):
 		
 	
 	def parts_search(self, **kwargs):
-		"""Execute a search over all result objects.
+		"""@brief Execute a search over all result objects.
 		
 		@return: A pair containing:
 			-The raw JSON result dictionary. 
@@ -918,10 +952,10 @@ class Octopart(object):
 			return None
 	
 	def _parts_suggest_args(self, q, args):
-		"""Validate and format arguments passed to parts_suggest().
+		"""@brief Validate and format arguments passed to parts_suggest().
 		
 		@return: Dictionary of valid arguments to pass to _make_url().
-		@raise OctopartException: Raised if invalid argument syntax is passed in.
+		@throw OctopartException: Raised if invalid argument syntax is passed in.
 		"""
 		
 		arg_types = {'q': StringType, 'limit' : IntType}
@@ -933,8 +967,8 @@ class Octopart(object):
 		
 	
 	def parts_suggest(self, q, **kwargs):
-		"""Suggest a part search query string.
-		
+		"""@brief Suggest a part search query string.
+		@details
 		Optimized for speed (useful for auto-complete features).
 		@return: A pair containing:
 			-The raw JSON result dictionary. 
@@ -959,10 +993,10 @@ class Octopart(object):
 			return None
 	
 	def _parts_match_args(self, manufacturer_name, mpn):
-		"""Validate and format arguments passed to parts_match().
+		"""@brief Validate and format arguments passed to parts_match().
 		
 		@return: Dictionary of valid arguments to pass to _make_url().
-		@raise OctopartException: Raised if invalid argument syntax is passed in.
+		@throw OctopartException: Raised if invalid argument syntax is passed in.
 		"""
 		
 		arg_types = {'manufacturer_name': StringType, 'mpn' : StringType}
@@ -973,7 +1007,7 @@ class Octopart(object):
 		return args
 	
 	def parts_match(self, manufacturer_name, mpn):
-		"""Match (manufacturer name, mpn) to part uid. 
+		"""@brief Match (manufacturer name, mpn) to part uid. 
 		
 		@return: a list of (part uid, manufacturer displayname, mpn) tuples.
 		If no JSON object is found without an Exception being raised, returns None.
@@ -996,10 +1030,10 @@ class Octopart(object):
 			return None
 	
 	def _partattributes_get_args(self, fieldname):
-		"""Validate and format arguments passed to partattributes_get().
+		"""@brief Validate and format arguments passed to partattributes_get().
 		
 		@return: Dictionary of valid arguments to pass to _make_url().
-		@raise OctopartException: Raised if invalid argument syntax is passed in.
+		@throw OctopartException: Raised if invalid argument syntax is passed in.
 		"""
 		
 		arg_types = {'fieldname': StringType}
@@ -1010,7 +1044,7 @@ class Octopart(object):
 		return args
 	
 	def partattributes_get(self, fieldname):
-		"""Fetch a PartAttribute object by its fieldname.
+		"""@brief Fetch a PartAttribute object by its fieldname.
 		
 		@return: A pair containing:
 			-The raw JSON result dictionary. 
@@ -1035,10 +1069,10 @@ class Octopart(object):
 			return None
 	
 	def _partattributes_get_multi_args(self, fieldnames):
-		"""Validate and format arguments passed to partattributes_get_multi().
+		"""@brief Validate and format arguments passed to partattributes_get_multi().
 		
 		@return: Dictionary of valid arguments to pass to _make_url().
-		@raise OctopartException: Raised if invalid argument syntax is passed in.
+		@throw OctopartException: Raised if invalid argument syntax is passed in.
 		"""
 		
 		arg_types = {'fieldnames': ListType}
@@ -1052,7 +1086,7 @@ class Octopart(object):
 		return args
 	
 	def partattributes_get_multi(self, fieldnames):
-		"""Fetch multiple PartAttribute objects by their fieldnames.
+		"""@brief Fetch multiple PartAttribute objects by their fieldnames.
 		
 		@return: A pair containing:
 			-The raw JSON result dictionary. 
@@ -1077,10 +1111,10 @@ class Octopart(object):
 			return None
 	
 	def _bom_match_args(self, lines, args):
-		"""Validate and format arguments passed to bom_match().
+		"""@brief Validate and format arguments passed to bom_match().
 		
 		@return: Dictionary of valid arguments to pass to _make_url().
-		@raise OctopartException: Raised if invalid argument syntax is passed in.
+		@throw OctopartException: Raised if invalid argument syntax is passed in.
 		"""
 		
 		arg_types = {'lines': ListType, \
@@ -1120,15 +1154,15 @@ class Octopart(object):
 		return args
 	
 	def bom_match(self, lines, **kwargs):
-		"""Match a list of part numbers to Octopart part objects.
+		"""@brief Match a list of part numbers to Octopart part objects.
 		 
-		@return: A pair containing:
-			-The raw JSON result dictionary. 
-			-A list of dicts containing:
-				-A list of OctopartParts.
-				-A reference string.
-				-A status string.
-				-Optionally, the number of search hits.
+		@return: A pair containing:\n
+			-The raw JSON result dictionary.\n 
+			-A list of dicts containing:\n
+				-A list of OctopartParts.\n
+				-A reference string.\n
+				-A status string.\n
+				-Optionally, the number of search hits.\n
 		If no JSON object is found without an Exception being raised, returns None.
 		"""
 		

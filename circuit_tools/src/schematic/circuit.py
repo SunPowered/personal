@@ -1,33 +1,30 @@
 '''
-Created on 2012-07-04
+@file schematic/circuit.py
+@package schematic.circuit
+@author timvb
+@brief A module containing schematic circuit objects
+@version 0.1.0
 
-@author: timvb
+@details
+This holds the general Circuit object
+
 '''
 
 import os
-#import re
-
-#import string
 
 from utils import log, config, fs
-#import schematic.component as component
 from schematic.netlist import Netlist
 
 
-#_variable_flag = "$"
-#_variable_flag_re = r"\$"
-
-
-#module errors
 class CircuitError(Exception):
     '''
-    Generic Circuit Error
+    @brief Generic Circuit Error
     '''
     pass
 
 class CircuitFileError(CircuitError):
     '''
-    Schematic File Error
+    @brief Schematic File Error
     '''
     pass
 
@@ -35,40 +32,23 @@ class CircuitFileError(CircuitError):
 
 class Circuit(object):
     '''
-    Circuit object.  Represents a schematic circuit.  Able to parse gschem schematic file.
+    @brief Contatiner for a Schematic Circuit object.      
+    This low level object is intended to be subclassed for more detailed
+    implementations.  
     
-    Currently intended only as a post processor to gschem.
-    
-    --
-    The following methods are available:
-    --
-    setName(), getName()
-    getFilePath(), getFileName()
-    
-    These will be moved to ComponentCircuit subclass
-    parseComponents() -- read the file and stores a list of components.  Also collects duplicate information
-    isComponentUnique() -- checks whether component 
-    --
-    TODO: Methods to implement
-    --
-    verifyComponents(attribute_list) -- verify that all the components in the component list have the required attributes 
-    printBOM(format) -- print the Bill Of Materials for the current component list 
-    
-    TODO: Add more doc
+   
+    @todo Add more doc
     '''
 
 
-    def __init__(self, file_path, name=None, logger=None):
+    def __init__(self, file_path, name=None, logger=None, netlist_cls=None):
         '''
-        Circuit Constructor
-        
-        @input: 
-            filename - the file name of the circuit
-            name(Opt) - a given name for the circuit
-            
-        @output: None
-        
-        Creates an internal component and unique_component list for easy BOM generation
+        @brief Schematic Circuit Constructor  
+        @param file_path The path to the circuit file
+        @param name (Opt) An internal name to assign the to the circuit.  If none is provided, a name is auto generated from the file_path
+        @param logger (Opt) Assign a custom logger object  
+        @param netlist_cls (opt) The netlist class to assign to any generated netlists
+        @throw CircuitFileError If the file_path does not point to an existing file or does not have a .sch extension      
         '''
         #Logging
         if not logger:
@@ -89,80 +69,80 @@ class Circuit(object):
         #
         self.file_path = file_path
         self.file_name = os.path.split(file_path)[1]
-        if not name:
-            self.name = os.path.splitext(self.file_name)[0]
-            self.logger.debug('assigned automatic name to circuit: %s'%(self.getName()))
-        else:
-            self.name = name
-        #self.required_attributes = required_attributes
+        
+        #Auto assign name if not provided
+        self.name = name or os.path.splitext(self.file_name)[0]
+        #Auto set netlist_cls to Netlist if not provided
+        self.setNetlistClass(netlist_cls or Netlist)
 
-        self.netlist_cls = Netlist
-        
-        
-        #
-        #Regex's
-        #
-        
-
-        
-
-        
-        #Netlist attributes
-        #self.default_netlist_extension = ".net"
-        
-        #self.parser = SchematicParser(self.filename)
-        #self.logger.debug('Created Circuit: %s'%(self.getName()))
     
     def setName(self, name):
         '''
-        sets the circuit name
+        @brief sets the circuit name
+        @param name A string name to assign
         '''
         self.name=name    
         
     def getName(self):
         '''
-        gets the circuit name
+        @brief gets the circuit name
+        @return A name string object
         '''
         return self.name
     
     def getFileName(self):
+        '''
+        @brief returns the currently stored circuit file name
+        @return A file name string object
+        '''
         return self.file_name
     
     def getFilePath(self):
+        '''
+        @brief returns the currently stored circuit file path
+        @return A file path string object
+        '''
         return self.file_path
     
 
     
     def _readFileData(self):
+        '''
+        @private
+        @brief An internal helper method to read the data from the stored file path
+        @return the entire file contents as a string
+        '''
         return open(self.getFilePath(), 'r').read()
     
 
-    
+    def setNetlistClass(self, netlist_cls):
+        '''
+        @brief assign a netlist class to instantiate
+        @param netlist_cls A child of schematic.Netlist
+        @throw schematic.Circuit.CircuitError When netlist_cls is not a child
+        of schematic.netlist.Netlist 
+        '''
+        if not isinstance(netlist_cls, Netlist):
+            raise CircuitError("Not a child of Netlist: %s"%(netlist_cls))
+        self.netlist_cls = netlist_cls
 
     
-    def _generateNetlist(self, output_file_name=None, name=None):
-        
-        #import netlist
+    def getNetlistClass(self):
         '''
-        calls gnetlist automatically filling in appropriate and useful flags along the way.
-        
-        @inputs: 
-            netlist_scheme: a str of the scheme model to parse withh
-                Accepted values:
-                    "spice-sdb"
-                    ...
-            
-                    
-            output_file_name: a netlist object 
-                    ...
-        @outputs:
-            file_path of new netlist, or None if an error occurred
-            
+        @brief return the netlist class stored
+        @return a child of schematic.Netlist
         '''
-        
-        if not output_file_name:
-            #create default from attributes
-            output_file_name = self.getName() + config.DEFAULT_NETLIST_EXTENSION
+        return self.netlist_cls
+    def _generateNetlist(self, *args, **kwargs):
+        '''
+        @private
+        @brief Helper function to create a netlist, used by subclassed objects  
+        @todo implement an stdout, stderr redirect during the gnetlist call. 
+        Maybe have the user be able to define where she wants it, default is buffered
+        and spit out in case of error 
+        '''
+        output_file_name = kwargs('output_file_name',self.getName() + config.DEFAULT_NETLIST_EXTENSION)
+
         if os.path.splitext(output_file_name)[1] == "":
             #No extension on the output file name, add the default
             self.logger.info("No extension found on output file name: %s.  Adding default extension, %s"%(output_file_name, self.default_netlist_extension))
@@ -174,42 +154,34 @@ class Circuit(object):
         new_working_directory = fs.switchWDFromFilePath(self.getFilePath())
         
         output_file_path = os.path.join(new_working_directory, output_file_name)    
-        
-        #Check types
-        #allowed_types = netlist.Netlist._enums["Types"]
-        #if type_ not in allowed_types.keys():
-        #    raise CircuitError("Netlist type %s not allowed"%(type_))
         scm_type = self.netlist_cls._netlist_scheme
         
 
-        #Run gnetlist
+        #Run gnetlist 
+        n = ''
         self.logger.info("Generating netlist of circuit %s"%(self.getName()))
-        n = None
-        
-        try:
-            os.system("gnetlist -g %s -o %s %s"%(scm_type, output_file_path, self.file_path))
-        except:
+        result = os.system("gnetlist -g %s -o %s %s"%(scm_type, output_file_path, self.file_path))
+        if result:
             self.logger.error("Error occurred during netlist creation")
         else:
-            if not os.path.isfile(output_file_path):
+            if not fs.waitForFile(output_file_path):
+                os.chdir(old_working_directory)
                 raise CircuitError("Netlist file %s not created"%(output_file_path))
             n = self.netlist_cls(output_file_path, name=self.getName(), logger=self.logger)
-        finally:
-            #No matter what, change back to the old original directory
-            os.chdir(old_working_directory)   
             
         return n
     
 
     
-
-
-      
+    def generateNetlist(self, output_file_name=None, name=None):
+        '''
+        @brief calls gnetlist automatically filling in appropriate and useful flags along the way.
         
-if __name__ == "__main__":
-    import pprint
-    
-    C1 = Circuit("../data/schmitt.trigger.sch")
-    C1.parseComponents()
-    pprint.pprint( C1.component_list )
-    pprint.pprint( C1.unique_components )
+        @param output_file_name (Opt) A file name to assign to the new netlist
+        @param name An internal name to assign to the netlist
+
+        @throw CircuitError If the netlist was not created
+        @return The file path of newly created netlist or an empty string if an error occured
+        ''' 
+        self._generateNetlist(output_file_name=output_file_name, name=name)
+      

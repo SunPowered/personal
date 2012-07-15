@@ -1,7 +1,8 @@
 '''
-Created on 2012-07-08
-
+@package bom.circuit
+@file bom/circuit.py
 @author: timvb
+@brief Module containing the BOMCircuit.  Useful for output of schematic components
 '''
 import re
 
@@ -9,26 +10,32 @@ from utils import log, config
 from schematic.circuit import Circuit, CircuitError, CircuitFileError
 from bom.component import BOMComponent, BOMComponentList, BOMComponentError
 
-class CircuitParserError(CircuitError):
+class BOMCircuitError(Exception):
+    pass
+
+class BOMCircuitParserError(BOMCircuitError):
     '''
     Schematic Parser Error
     '''
     pass
 
-
+class BOMCircuitParserComponentError(BOMCircuitParserError):
+    pass
 class BOMCircuit(Circuit):
     '''
-    Will hold BOM related circuits.
-    
-    Ability to parse components, fetch info from web API, print out reports
-    
-    
-    required_attributes(Opt) - enforce all components have the given attributes
+    @class bom.circuit.BOMCircuit
+    @brief Ability to parse components, fetch info from web API, print out reports
     '''
     
     _flagged_devices = config.BOM_PARSE_MODEL["FLAGGED_DEVICES"]
     
     def __init__(self, *args, **kwargs):
+        '''
+        @brief BOMCircuit constructor class
+        @param args from  
+        @param kwargs @li required_attributes (Opt) A list of mandatory attributes for each 
+        component
+        '''
         logger = kwargs.get('logger', None)
         if not logger:
             kwargs['logger'] = log.getDefaultLogger('bom.circuit.BOMCircuit')
@@ -38,7 +45,7 @@ class BOMCircuit(Circuit):
         self.required_attributes = kwargs.get('required_attributes', None)
         
         self.component_list = BOMComponentList()
-        self.unique_components = BOMComponentList()
+        #self.unique_components = BOMComponentList()
         
         #self.ignoreMultipleRefdes = True
         #self._ignored = []
@@ -51,8 +58,7 @@ class BOMCircuit(Circuit):
     
     def __contains__(self, comp):
         '''
-        if component in BOMCircuit:
-            print "component exists in circuit"
+        @brief contains override
         '''    
         return comp in self.component_list
     #def setRequiredAttributes(self, attributes, append=False):
@@ -63,26 +69,32 @@ class BOMCircuit(Circuit):
     #    self.required_attributes = attributes        
         
     def getComponentList(self):
+        '''
+        @brief returns the current component list
+        '''
         return self.component_list
     
-    def getUniqueComponents(self):
-        return self.unique_components
+    #def getUniqueComponents(self):
+        
+    #    return self.unique_components
     
     #def getIgnored(self):
     #    return self._ignored
     
-    def _ignoreComponent(self, comp):
-        '''
-        Ignore a component
-        '''
-        #self.logger.debug("Ignoring component: %s"%(comp))
-        #self._ignored.append(comp)
-        pass
+    #def _ignoreComponent(self, comp):
+    #    '''
+    #    Ignore a component
+    #    '''
+    #    #self.logger.debug("Ignoring component: %s"%(comp))
+    #    #self._ignored.append(comp)
+    #    pass
     
     def parseComponents(self):
         '''
-        Parses schematic file for a BOM Export  
-        
+        @brief Parses schematic file for a BOM Export  
+        @throw bom.circuit.BOMCircuitParserError If there was an error during a regex match
+        @throw bom.circuit.BOMCircuitParserComponentError  If there is an error during BOMComponent instantiation
+        @details
         Steps.
         1.    read circuit file data, and use regex to separate all component blocks
         2.    for each component
@@ -113,7 +125,8 @@ class BOMCircuit(Circuit):
         
         #check whether components were found
         if not components:
-            raise CircuitParserError("Invalid regexp match")
+            self.logger.error("There was an error parsing the circuit during the regex match. Aborting parse")
+            raise BOMCircuitParserError("There was an error parsing the circuit during the regex match. Aborting parse")
         else:
             self.logger.debug("A total of %i components were found"%(len(components)))
         
@@ -127,7 +140,7 @@ class BOMCircuit(Circuit):
             attributes  = self.attribute_re.findall(attribute_data)
             
             if not attributes:
-                raise CircuitParserError("No attributes found for component: %s"%(symbol_file))
+                raise BOMCircuitParserError("No attributes found for component: %s"%(symbol_file))
             
             #Create dictionary for component creation
             attributes = dict(attributes)
@@ -200,7 +213,7 @@ class BOMCircuit(Circuit):
                 try:
                     comp = BOMComponent(**attributes)    
                 except BOMComponentError, msg:
-                    raise CircuitParserError("Error creating BOM component: %s"%(msg))
+                    raise BOMCircuitParserComponentError("Error creating BOM component: %s"%(msg))
                 
                 #attach to component list
                 self._addComponentToLists(comp)
@@ -215,31 +228,14 @@ class BOMCircuit(Circuit):
 
     def _isComponentUnique(self, comp):
         '''
-        Checks a component agains the current component list
+        @brief Checks a component agains the current component list
+        @return bool
         '''
         return not (comp in self.component_list)
     
     def _addComponentToLists(self, comp):
         '''
-        Adds a parsed component to the component lists and updates the unique component list
+        @brief Adds a parsed component to the component lists and updates the unique component list
+        @param comp A BOMComponent to add
         '''
-        
-        '''
-        unique = self._isComponentUnique(comp)
-        
-        if unique:
-            #New component
-            componentAttributes = comp.getAllAttributes()
-            tmp_comp = BOMComponent(**componentAttributes)
-            #tmp_comp.setAttribute('quantity', 1)
-            self.unique_components.append(tmp_comp)
-        else:
-            #Update quantity 
-            comp_index = self.unique_components.index(comp)
-            tmp_comp = self.unique_components.pop(comp_index)
-            tmp_comp.addAnother(refdes=comp.getAttribute('refdes'))
-            self.unique_components.insert(comp_index, tmp_comp)
-            #new_quantity = self.unique_components[comp_index].getAttribute('quantity') + 1
-            #self.unique_components[comp_index].setAttribute('quantity', new_quantity)
-        '''    
         self.component_list.append(comp)

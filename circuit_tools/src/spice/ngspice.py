@@ -2,6 +2,8 @@
 Created on 2012-07-04
 
 @author: timvb
+
+So far, unused... take a look deeper and see if anything useful
 '''
 from numpy import array, zeros
 from pylab import plot, figure, grid, show, legend

@@ -35,7 +35,7 @@ import os
 
 import unittest
 
-import spice.simulation as simulation
+import spice.simulation.simulation as simulation
 import spice.circuit as cir
 
 

@@ -14,21 +14,32 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+'''
+@package spice.spice_read
+@file spice/spice_read.py
+@author: Werner Hoch
+@brief read spice raw file data
+'''
 import numpy
 import string
 import sys
 
 class SpiceVector(object):
     """
-    Contains a single spice vector with it's data and it's attributes.
-    The vector is numpy.array, either real or complex.
+    @brief Contains a single spice vector with it's data and it's attributes.
+    @details The vector is numpy.array, either real or complex.
     The attributes are:
       * name: vector name
       * type: frequency, voltage or current
     """
     
     def __init__(self, vector=numpy.array([]), **kwargs):
+        '''
+        @brief Constructor method for spice.spice_read.SpiceVector
+        @param vector a numpy array
+        @param kwargs dict of additional attribute value pairs
+        '''
+        
         self.data = vector
         self.name = ""
         self.type = ""
@@ -36,7 +47,8 @@ class SpiceVector(object):
         
     def setAttributes(self, **kwargs):
         """
-        Set the attribues of the vector "name" and "type"
+        @brief Set the attribues of the vector "name" and "type"
+        @param kwargs attribute value pairs to assign
         """
         for k,v in kwargs.items():
             if hasattr(self,k):
@@ -50,28 +62,33 @@ class SpiceVector(object):
                     
     def setData(self, data_array):
         """
-        set a new numpy.array as data vector
+        @brief set a new numpy.array as data vector
+        @param data_array a data set numpy.array to save
         """
         self.data = data_array
 
     def getData(self):
         """
-        returns the data vector as numpy.array
+        @brief returns the data vector as numpy.array
+        @return numpy.ndarray Current data set
         """
         return self.data
     
 
 class SpicePlot(object):
     """
-    This class holds a single spice plot
-    It contains one scale vector and a list of several data vectors.
+    @brief This class holds a single spice plot
+    @details It contains one scale vector and a list of several data vectors.
     The plot may have some attributes like "title", "date", ...
     """
 
     def __init__(self, scale=None ,data=None, **kwargs):
         """
-        Initialize a new spice plot.
-        Scale may be an SpiceVector and data may be a list of SpiceVectors.
+        @brief Initialize a new spice plot.
+        @param scale (Opt) a numpy.array vector
+        @param data initial data to set
+        @param kwargs Additional attributes to assign to the plot
+        @details Scale may be an SpiceVector and data may be a list of SpiceVectors.
         The attributes are provided by **kwargs.
         """
         self.title = "title undefined"
@@ -96,7 +113,8 @@ class SpicePlot(object):
 
     def setAttributes(self, **kwargs):
         """
-        Set the attributes of a plot. 
+        @brief Set the attributes of a plot. 
+        @param kwargs Dict of attribute value pairs to set
         """
         for k,v in kwargs.items():
             if hasattr(self, k):
@@ -110,51 +128,61 @@ class SpicePlot(object):
 
     def setScaleVector(self, spice_vector):
         """
-        Set a SpiceVector as the scale_vektor.
+        @brief Set a SpiceVector as the scale_vector.
+        @param spice_vector A numpy.array to assign as the scale
         """
         self.scale_vector = spice_vector
 
     def setDataVectors(self, spice_vector_list):
         """
-        Set a list of SpiceVector as data of SpicePlot
+        @brief Set a list of SpiceVector as data of SpicePlot
+        @param spice_vector_list a list of spice.spice_read.SpiceVector objects to set
         """
         self.data_vectors = spice_vector_list
 
     def appendDataVector(self, spice_vector):
         """
-        Append a single SpiceVector to the data section
+        @brief Append a single SpiceVector to the data section
+        @param spice_vector A spice.spice_read.SpiceVector to append
         """
         self.data_vectors.append(spice_vector)
 
     def getScaleVector(self):
         """
-        returns the scale vector as a SpiceVector
+        @brief returns the scale vector as a spice.spice_read.SpiceVector
+        @return numpy.array
         """
         return self.scale_vector
 
     def getDataVector(self,n):
         """
-        returns the n-th data vector as a SpiceVector
+        @brief returns the n-th data vector as a spice.spice_read.SpiceVector
+        @return spice.spice_read.SpiceVector
         """
         return self.data_vectors[n]
 
     def getDataVectors(self):
         """
-        return a list of all SpiceVectors of the plot
+        @brief return a list of all spice.spice_read.SpiceVector objects of the plot
+        @return list of data vectors
         """
         return self.data_vectors
 
 
 class SpiceRead(object):
     """
-    This class is reads a spice data file and returns a list of SpicePlot
+    @brief This class is reads a spice data file and returns a list of SpicePlot
     objects.
 
-    The file syntax is mostly taken from the function raw_write() from
+    @details The file syntax is mostly taken from the function raw_write() from
     ngspice-rework-17 file ./src/frontend/rawfile.c
     """
 
     def __init__(self, filename):
+        '''
+        @brief spice.spice_read.SpiceRead Constructor method
+        @param filename The SPICE raw file path
+        '''
         self.plots = []
         self.setDefaultValues()
         error = self.readFile(filename)
@@ -163,6 +191,9 @@ class SpiceRead(object):
             print "error in reading the file"
 
     def setDefaultValues(self):
+        '''
+        @brief sets the default values to the attributes
+        '''
         ## Set the default values for some options
         self.current_plot = SpicePlot()
         self.nvars = 0
@@ -173,6 +204,10 @@ class SpiceRead(object):
         self.vectors = []
 
     def readFile(self,filename):
+        '''
+        @brief reads the SPICE raw file
+        @param filename the file to read
+        '''
         f = open(filename, "rb")
         while (1):
             line = f.readline()
@@ -297,6 +332,9 @@ class SpiceRead(object):
                 return 0
 
     def getPlots(self):
+        '''
+        @return list of plots
+        '''
         return self.plots
 
 

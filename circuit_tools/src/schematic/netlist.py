@@ -1,7 +1,10 @@
 '''
-Created on 2012-07-08
+@file schematic/netlist.py
+@package schematic.netlist
 
-@author: timvb
+@author timvb
+@brief A module containing schematic netlist objects
+@version 0.1.0
 '''
 import os
 #import string
@@ -16,18 +19,22 @@ class NetlistError(Exception):
 
 class Netlist(object):
     '''
-    Netlist object, required for simulations and much more
-    
-    @input:
-        file_path - The file path of the current netlist
-        name (Optional) - Assign a name to the netlist
-        
-    TODO: Implement a removal of any .INCLUDE .*.LIB statements from netlist
+    @brief Netlist object, required for simulations and much more
+  
+    @todo Implement a removal of any .INCLUDE .*.LIB statements from netlist
     '''   
     
     _netlist_scheme = 'geda'
     
     def __init__(self, file_path, name=None, logger=None, type_=None, netlist_scheme=None):
+        '''
+        @brief The Constructor method for a schematic.Netlist object
+        @param file_path The file path of the current netlist
+        @param name (Optional) - Assign a name to the netlist
+        @param logger (Optional) - Assign a custom logger object to the netlist
+        @param type_ (Optional) - Assign a type  to the netlist (Maybe useless)
+        @param netlist_scheme (Optional) - Assign a gnetlist scheme to use for gnerating the netlist
+        '''
         #Logger init
         if not logger:
             self.logger = log.getDefaultLogger('circuit.Netlist')
@@ -55,42 +62,75 @@ class Netlist(object):
         
         self._default_netlist_extension = _default_netlist_extension    
     def getName(self):
+        '''
+        @brief return the current name of the netlist
+        @return a string
+        '''
         return self.name
     
     def setName(self, name):
+        '''
+        @brief Set the current name of the netlist
+        @param name The name to assign
+        '''
         self.name = name
         
     def getType(self):
+        '''
+        @brief get the current netlist type
+        @return a string
+        '''
         return self.type_
     
     def setType(self, type_):
+        '''
+        @brief Sets the current netlist type
+        @param type_ the type of the current netlist
+        '''
         self.type_ = type_
     
     def getNetlistScheme(self):
+        '''
+        @brief Returns the gnetlist scheme to use while generating a new netlist
+        @return a string 
+        '''
         return self.netlist_scheme
     
     def setNetlistScheme(self, netlist_scheme):
+        '''
+        @brief Set the current netlist scheme
+        @param netlist_scheme The netlist scheme to assign
+        '''
         self.netlist_scheme = netlist_scheme
             
     def getFilePath(self):
+        '''
+        @brief Return the current netlist file path
+        @return a string file path
+        '''
         return self.file_path
        
     def removeNetlistFile(self):
         '''
-        removes the current file.  useful for cleanup operations after a batch process
+        @brief removes the current netlist file from the file system.  
+        @return the returned value from os.remove
+        useful for cleanup operations after a batch process
         '''
         self.logger.debug("Removing file %s"%(self.getFilePath()))
         return os.remove(self.getFilePath())
     
-def generateNetlistFilePath(file_path, default_extension=_default_netlist_extension):
+def generateNetlistFilePath(file_path, extension=_default_netlist_extension):
     '''
-    replaces the extension of the given file path with that defined in the configuration settings.
-    
-    Useful for 
+    @brief replaces the extension of the given file path with that defined in the configuration settings.
+    @param file_path The current file path to replace
+    @param extension Assign an extension to the file.  
+    Default is set in the utils.config.DEFAULT_NETLIST_EXTENSION module
+    @return a string file path 
+     
     '''
     try:
         path, ext = os.path.splitext(file_path)
     except:
-        return None
+        return ''
     
     return path + default_extension

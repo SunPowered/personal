@@ -1,17 +1,26 @@
 '''
-Created on 2012-07-06
-
+@package: spice.simulation.simulation
 @author: timvb
+@brief: The simulation module holding the base SPICE simulaton obect.
+
+A Simulation Object reads schematic circuit object, as well as a model input.
+
+The SpiceSimulation Object can be subclassed to provide different simulation types:
+    -- SingleSimulation    -    Performs a single simulation pass
+    - ParameterSweepSimulation    -    Sweeps through variables in the model input, storing single pass values
+    - OptimizationSimulation    -    Performs a differential optimization routine to find optimal values for a circuit 
 '''
+
 import os
+
 import numpy as np
 
-import spice_read
-from utils import log
+from utils import log, config
 import spice.circuit as cir
+from spice.simulation.variable import SimulationInputVariable
+from spice.simulation.result import SimulationResult
 
-_default_array_length = 10
-
+#TODO: Eliminate these with subclasses
 class SimulationTypesEnums(object):
     SINGLE = 0
     SINGLE_VARIABLE_SWEEP = 1
@@ -30,19 +39,35 @@ class SpiceSimulation(object):
     '''
     An object to run spice simulations using ngspice
     
-    @input:
-        circuit - A Circuit object that is ready for simulation
-        name (Optional) - The name of the simulation
-        logger (Optional) - The logger instance to use 
-        raw_file(Optional) - A custom name to assign to raw file output
+    @todo: Prepare for breakup to subclasses
+    
+    @param circuit A Circuit object that is ready for simulation
+    @param name   (Optional) - The name of the simulation
+    @param raw_file  (Optional) - A custom name to assign to raw file output
+    @param logger (Optional) - The logger instance to use 
         
-    A simulation can be a one-time run or many, with the results being 
+    Simulations are composed of the following objects.
+    
+    Simulation Netlist
+    Simulation Variables
+    Simulation Result
+    
+    A single run of a circuit takes one set of variables, inserts them into a netlist, 
+    runs the simulation, and returns a simulation result
+        
+    A simulation can be a one-time run or many, with the results being ...
+    
+    Usage:
+    @code
+    import spice.circuit.SpiceCircuit
+    cir = SpiceCircuit('/location/to/circuit/file.sch')
+    print cir 
+    @endcode
     '''
 
-    _default_sim_name = "Spice Simulation"
     
     #_enums = {"Simulation Types":{"Single": 0, "Single Variable Sweep":1, "All Variable Sweep":2, "Optimize":3}}
-    _default_raw_file = "results.raw"
+    _default_raw_file = "spice_results.raw"
     
     def __init__(self, circuit, name=None, logger=None, raw_file=_default_raw_file):
         '''
@@ -65,13 +90,16 @@ class SpiceSimulation(object):
         self.circuit = circuit
         
         if not name:
-            self.name = circuit.getName()
+            circuit_name = circuit.getName()
+            if not circuit_name:
+                name = config.DEFAULT_SPICE_SIMULATION_NAME
         else:
             self.name = name
         
         self.raw_file = raw_file
         
         #Circuit Variables 
+        #TODO: Now use the custom container, variable.SimulationVariable
         '''
         The Variables dict has an internal structure of
         {"VariableName": {"default": default_value,
@@ -101,15 +129,29 @@ class SpiceSimulation(object):
         self.simulation_type = None
     
     def setName(self, name):
+        '''
+        sets the simulation name
+        '''
         self.name = name
         
     def getName(self):
+        '''
+        return the simulation name
+        '''
         return self.name
     
     def getSimVars(self):
+        '''
+        return all of the simulation variables
+        '''
         return self.sim_variables.keys()
     
+    #TODO: Delete due to existance in Variable object
+    """
     def getSimVarRange(self, var_name):
+        '''
+        
+        '''
         return self.sim_var_ranges[var_name]
     
     def getSimVariableBounds(self, var_name):
@@ -137,7 +179,7 @@ class SpiceSimulation(object):
         '''
         self.sim_variables[var_name]["values"] = values
         
-    def setSimVariableValuesFromBounds(self, var_name, n=_default_array_length, type_='lin'):
+    def setSimVariableValuesFromBounds(self, var_name, n=None, type_='lin'):
         '''
         creates an n length object of values, separated by the type.
         
@@ -145,6 +187,8 @@ class SpiceSimulation(object):
             lin - linearly spaced
             log - logarithmically spaced
         '''
+        if not n:
+            n = config
         lower_bound, upper_bound = self.getSimVariableBounds(var_name)
         
         if type_ == "lin":
@@ -161,8 +205,8 @@ class SpiceSimulation(object):
         upper_bound = max(self.getSimVariableValues(var_name))
         
         self.setSimVariableBounds(var_name, lower_bound, upper_bound)
-        
-    
+    #TODO: Variable methods end here    
+    """
     def getSimType(self):
         return self.simulation_type
     
@@ -252,12 +296,18 @@ class SpiceSimulation(object):
     
 
     def generateNetlist(self, **kwargs):
+        '''
+        generates a netlist from the current circuit
+        '''
         self.netlist = self.circuit.generateSpiceNetlist(logger=self.logger, **kwargs)
     
     def _runSpice(self, netlist):
-        
+        '''
+        Run a NGSPICE simulation in batch mode on the current netlist
+        '''
         return os.system('ngspice -b -r %s %s'%(self.raw_file, netlist))
     
+    #TODO: Fit all this under a subclass
     def _runSingle(self):
         '''
         Runs the variables with their default configuration, returns a simulation result object
@@ -289,230 +339,8 @@ class SpiceSimulation(object):
             
         return result
 
-class SimulationResultError(Exception):
-    pass
-     
-class SimulationResult(object):
-    
-    _default_dependent_output_variable='time'
-    
-    '''
-    An object to store simulation results from many individual simulations.  
-    
-    It may need to be created and configured for each simulation run which is performed. 
-    
-    Should have the ability to read raw ngspice data and store relevant data persistently
-    
-    Also have the capability to plot?
-    '''
-    
-    def __init__(self, sim_type=None, variables=None, save_vectors=None, raw_file=None):
-        '''
-        A Result file must be created before the simulation is run.  It is used by the simulator to track which data sets to track
-        
-        TOD: Define this in detail, it seems it will be important
-        '''   
-        
-        #TODO: check sim_type is valid
-        self.sim_type = sim_type
-        
-        self.variables = variables
-        
-        #Save_vectors list init
-        if not save_vectors:
-            self.save_vectors = []
-        else:
-            self.save_vectors = save_vectors
-        
-        #Init save vectors as attributes
-        for vec in self.save_vectors:
-            self.__setattr__(vec, np.array([]))
-            
-        #Init raw_file
-        self.raw_file = raw_file
-        
-    def setSimType(self, sim_type):
-        self.sim_type = sim_type    
-    
-    def getSimType(self):
-        return self.sim_type
-    
-    def setRawFile(self, raw_file_path):
-        if not os.path.isfile(raw_file_path):
-            raise SimulationResultError("Raw File not found: %s"%(raw_file_path))
-        self.raw_file = raw_file_path
-        
-    def getRawFile(self):
-        return self.raw_file
-    
-    def readRawFile(self, raw_file_path=None):
-        if not raw_file_path:
-            raw_file_path = self.getRawFile()
-            
-        spice_data = spice_read.SpiceRead(raw_file_path).getPlots()
-        
-        #TODO: append spice data to save_vectors ...
-        # Raw files should have single values plots in the first plot
-        # time, frequency vectors in a plot should be understood
 
-class SimulationVariableError(Exception):
-    pass
-
-class SimulationInputVariableError(SimulationVariableError):
-    pass
-
-class SimulationVariable(object):
-    '''
-    Base Class for Simulation Variables
-    '''
-    def __init__(self, name=None, units=None, logger=None):
-        self.logger=logger
-        self.name = name
-        self.units = units
-        
-    def setUnits(self, units):
-        self.units = units
-    
-    def getUnits(self):
-        return self.units
-    
-    def setName(self, name):
-        self.name = name
-        
-    def getName(self):
-        return self.name
-    
-    
-class SimulationInputVariable(SimulationVariable):
-    '''
-    Custom object to hold a simulation input variable data
+class SingleSimulation(SpiceSimulation):
     '''
     
-    def __init__(self, name=None, description=None, default=None,
-                 bounds=None, values=None, units=None, logger=None):
-        '''
-        @input:
-        (Optional)
-            name            Printing name of the variable
-            circuit_name    reference in circuit
-            
-        '''
-        SimulationVariable.__init__(self, name=name, units=units, logger=None)
-        
-        self.description = description
-        
-        if not default:
-            default = 0.0
-        self.setDefault(default)
-        
-        if not bounds:
-            bounds = []
-        self.setBounds(bounds)
-        
-        self.setValues(values)
-        
-    def setDescription(self, description):
-        '''
-        '''
-        self.description = description
-        
-    def getDescription(self):
-        '''
-        '''
-        return self.description
-
-    def setDefault(self, default):
-        '''
-        a float
-        '''
-        try:
-            self.default = float(default)
-        except:
-            pass
-    def getDefault(self):
-        '''
-        '''
-        return self.default
-    
-    def setBounds(self, bounds, *arg):
-        '''
-        Bounds must be a 1x2 array [lower_bound, upper_bound]
-        
-        Can accept either a list(or numpy array) single input,
-            or a lower_bound, upper_bound argument pair
-        '''
-        if len(arg) > 0:
-            #lower_bound, upper_bound pair
-            lower = float(bounds)
-            upper = float(arg[0])
-        else:
-            try:
-                lower = float(bounds[0])
-                upper = float(bounds[1])
-            except:
-                lower = upper = 0.0
-        
-        try:
-            self.bounds = np.array([lower, upper])
-        except Exception, msg:
-            raise SimulationInputVariableError("Error while setting the bounds. [Lower,Upper]: [%.2f,%.2f]\n%s"%(lower, upper, msg))
-    
-    def getBounds(self):
-        '''
-        '''
-        return self.bounds
-    
-    def setValues(self, values):
-        '''
-        sets the variable values
-        
-        if input argument is a list, then a numpy array will be created in its place
-        '''
-        if isinstance(values, list):
-            
-            self.values = np.array(values)
-            
-        elif isinstance(values, np.ndarray):
-            
-            self.values = values
-        
-    def getValues(self):
-        '''
-        '''
-        return self.values
-    
-    def setValuesFromBounds(self, length=None, spacing='lin'):
-        '''
-        sets the values of the variable from the saved bounds, the array length,
-        and the spacing type (log or lin) to use.
-        '''
-        if not length:
-            length = _default_array_length
-        
-        bounds = self.getBounds()
-        if not bounds:
-            raise SimulationInputVariableError("No bounds set")
-        lower = bounds[0]
-        upper = bounds[1]
-        
-        if spacing == 'lin':
-            
-            self.setValues(np.linspace(lower, upper, length))
-            
-        elif spacing == 'log':
-            
-            self.setValues(np.logspace(lower, upper, length))
-        
-        return self.getValues()
-    
-    def setBoundsFromValues(self):
-        '''
-        sets the bounds from a values array
-        '''
-        
-        lower = min(self.getValues())
-        upper = max(self.getValues())
-        
-        self.setBounds(lower, upper)
-        
-        return self.getBounds()
+    '''

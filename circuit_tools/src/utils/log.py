@@ -1,11 +1,9 @@
 '''
-Created on 2012-07-06
-
-@author: timvb
-
-Project Wide log utilities
+@package utils.log
+@author timvb
+@file utils/log.py
+@brief Project logging utilities module
 '''
-
 import os
 
 import logging
@@ -23,7 +21,8 @@ _default_level = logging.DEBUG
 #Null Logger
 def NullLogger():
     '''
-    returns a null logger instance
+    @brief returns a null logger instance
+    @return logging.Logger Null Instance
     '''
     logger = logging.getLogger("Null")
     logger.setLevel(logging.DEBUG)
@@ -36,12 +35,17 @@ def NullLogger():
 #Stream Logger
 def StreamLogger(name, **kwargs):  
     '''
-    hey you!
+    @brief A logger to spit out to std
+    @param name The name to set to the logger   
+    @param kwargs @li <b>level</b> (Opt) Logging level to use
+    @li <b>log_format</b> (Opt) Custom log message format string
+    @li <b>print_format</b> (Opt) Boolean Prints the message format as a header at the start of 
+    the log session
+    @return logging.Logger instance with a given logger name and logging level 
+    stream handler and default formatting.  
     
-    returns a logger instance with a given logger name and logging level 
-    stream handler and default formatting.  Used for quick dev
-    
-    level=_default_level, log_format=_default_format, print_format=False):
+    @details
+    Used for quick dev
     '''
     level = kwargs.get('level', _default_level)
     log_format = kwargs.get('log_format',_default_format)

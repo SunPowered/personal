@@ -1,3 +1,7 @@
+'''
+I am not using this
+'''
+
 #!/usr/bin/python
 
 #     Copyright (C) 2007-2008 Werner Hoch
@@ -17,8 +21,8 @@
 
 import sys, os.path, getopt
 import numpy
-import tables
-import spice_read
+#import tables
+import spice.spice_read as spice_read
 
 VERSION="0.0.2"
 AUTHOR='Werner Hoch <werner.ho@gmx.de>'
