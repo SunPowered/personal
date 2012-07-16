@@ -137,7 +137,10 @@ class Netlist(object):
         useful for cleanup operations after a batch process
         '''
         self.logger.debug("Removing file %s"%(self.getFilePath()))
-        return os.remove(self.getFilePath())
+        try:
+            os.remove(self.getFilePath())
+        except OSError:
+            pass
     
 def generateNetlistFilePath(file_path, extension=_default_netlist_extension):
     '''
