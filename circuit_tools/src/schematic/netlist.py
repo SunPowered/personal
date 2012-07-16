@@ -26,41 +26,61 @@ class Netlist(object):
     
     _netlist_scheme = 'geda'
     
-    def __init__(self, file_path, name=None, logger=None, type_=None, netlist_scheme=None):
+    def __init__(self, *args, **kwargs):
         '''
         @brief The Constructor method for a schematic.Netlist object
-        @param file_path The file path of the current netlist
-        @param name (Optional) - Assign a name to the netlist
-        @param logger (Optional) - Assign a custom logger object to the netlist
-        @param type_ (Optional) - Assign a type  to the netlist (Maybe useless)
-        @param netlist_scheme (Optional) - Assign a gnetlist scheme to use for gnerating the netlist
+        @param args Optional Arguments @li @b file path The netlist file path 
+        @parma kwargs Optional keyword arguments @li @b name Assign a name to the netlist
+        @li @b logger Assign a custom logger object to the netlist
+        @li @b type Assign a type  to the netlist (Maybe useless)
+        @li @b  netlist_scheme Assign a gnetlist scheme to use for gnerating the netlist
         '''
         #Logger init
-        if not logger:
-            self.logger = log.getDefaultLogger('circuit.Netlist')
-        else:
-            self.logger = logger
+        self.logger = kwargs.get('logger', log.getDefaultLogger('schematic.netlist.Netlist'))
         
-        #Name init
-        if not name:
-            try:
-                self.name = os.path.splitext(os.path.split(file_path)[1])[0]
-            except:
-                self.logger.error("Error in split")
-                raise NetlistError("Name could not be assigned")
-        else:
-            self.name = name
+        self.setName(kwargs.get('name', ''))
+        
+
         
         #file_path init
-        self.file_path = file_path
-        if not os.path.isfile(file_path):
-            raise NetlistError("File does not exist: %s"%(self.file_path))
+        if args:
+            file_path = args[0]
+        else:
+            file_path = None
+        self.setFilePath(file_path)
+            
+        #if not os.path.isfile(file_path):
+        #    raise NetlistError("File does not exist: %s"%(self.file_path))
 
         #type init
-        self.setType(type_)
-        self.setNetlistScheme(netlist_scheme)
+        self.setType(kwargs.get('type', None))
+        self.setNetlistScheme(kwargs.get('netlist_scheme', None))
         
-        self._default_netlist_extension = _default_netlist_extension    
+        self._default_netlist_extension = _default_netlist_extension   
+        
+    def setFilePath(self, file_path):
+        '''
+        @brief sets the file path for the current netlist
+        @param file_path
+        ''' 
+        if not file_path:
+            return
+        if not os.path.isfile(file_path):
+            raise NetlistError('File does not exist: %s'%(file_path))
+        if not self.getName():
+            '''
+            Auto-generate name if none already assigned
+            '''
+            self.setName(os.path.splitext(os.path.split(file_path)[1])[0])
+        self.file_path = file_path
+        
+    def getFilePath(self):
+        '''
+        @brief get the file path
+        @return the file path for the current netlist 
+        '''
+        return self.file_path
+    
     def getName(self):
         '''
         @brief return the current name of the netlist
@@ -133,4 +153,4 @@ def generateNetlistFilePath(file_path, extension=_default_netlist_extension):
     except:
         return ''
     
-    return path + default_extension
+    return path + config.DEFAULT_NETLIST_EXTENSION

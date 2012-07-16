@@ -21,7 +21,7 @@ def switchWDFromFilePath(file_path):
         return os.getcwd()
 
 
-def waitForFile(file_path, interval=None, max_retry=None):
+def waitForFile(file_path, interval=None, max_retries=None):
     import time
     '''
     @brief waits for a file to exist, retrying a number of times before raising an error
@@ -34,7 +34,7 @@ def waitForFile(file_path, interval=None, max_retry=None):
     
     count = 0
     while not os.path.isfile(file_path):
-        if count >= max_retry:
+        if count >= max_retries:
             return False
         time.sleep(interval)
         count += 1

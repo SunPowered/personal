@@ -8,7 +8,7 @@
 
 import numpy as np
 
-from utils import config
+from utils import config, log
 
 
 class SimulationVariableError(Exception):
@@ -28,8 +28,9 @@ class SimulationVariable(object):
         @param name (Opt.) Variable name
         @param units (Opt.) The variable units
         @param logger (Opt.) A custom logger object to use 
-        '''
-        self.logger=logger
+        '''        
+        self.logger = logger or log.getDefaultLogger('Simulation Variable')
+        
         self.name = name
         self.units = units
         
@@ -78,7 +79,7 @@ class SimulationInputVariable(SimulationVariable):
         @param units (Opt.) units of the variable
         @param logger (Opt.) Custom logger object
         '''
-        SimulationVariable.__init__(self, name=name, units=units, logger=None)
+        SimulationVariable.__init__(self, name=name, units=units, logger=logger)
         
         self.description = description
         
@@ -134,7 +135,7 @@ class SimulationInputVariable(SimulationVariable):
         @details Can accept either a list(or numpy array) single input, or a lower_bound, upper_bound argument pair
         @throw SimulationInputVariableError If there is an error assigning the arguments to floats
         '''
-        if len(arg) > 0:
+        if len(args) > 1:
             #lower_bound, upper_bound pair
             try:
                 lower = float(bounds)
@@ -144,12 +145,20 @@ class SimulationInputVariable(SimulationVariable):
                 raise SimulationInputVariableError("Exception raised while converting bounds. %s"%(str(args)))
             
         else:
-            try:
-                lower = float(bounds[0])
-                upper = float(bounds[1])
-            except:
-                self.logger.error("Exception raised while converting bounds. %s"%(str(args)))
-                raise SimulationInputVariableError("Exception raised while converting bounds. %s"%(str(args)))
+            
+            bounds = args[0]
+            if bounds:
+                try:
+                
+                    lower = float(bounds[0])
+                    upper = float(bounds[1])
+                except:
+                    self.logger.error("Something strange happening with the bounds: %s"%(str(bounds)))
+                    raise SimulationVariableError("Something strange happened with the bounds conversion")
+            else:
+                lower  = upper = 0.0
+            #self.logger.error("Exception raised while converting bounds. %s"%(str(args)))
+            #raise SimulationInputVariableError("Exception raised while converting bounds. %s"%(str(args)))
         
         
         self.bounds = np.array([lower, upper])

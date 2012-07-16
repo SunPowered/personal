@@ -122,7 +122,8 @@ class Circuit(object):
         @throw schematic.Circuit.CircuitError When netlist_cls is not a child
         of schematic.netlist.Netlist 
         '''
-        if not isinstance(netlist_cls, Netlist):
+        
+        if not isinstance(netlist_cls(), Netlist):
             raise CircuitError("Not a child of Netlist: %s"%(netlist_cls))
         self.netlist_cls = netlist_cls
 
@@ -141,7 +142,7 @@ class Circuit(object):
         Maybe have the user be able to define where she wants it, default is buffered
         and spit out in case of error 
         '''
-        output_file_name = kwargs('output_file_name',self.getName() + config.DEFAULT_NETLIST_EXTENSION)
+        output_file_name = kwargs.get('output_file_name', self.getName() + config.DEFAULT_NETLIST_EXTENSION)
 
         if os.path.splitext(output_file_name)[1] == "":
             #No extension on the output file name, add the default
