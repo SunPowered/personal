@@ -1,21 +1,25 @@
 '''
+@file spice/simulation/simulation.py
 @package: spice.simulation.simulation
 @author: timvb
 @brief: The simulation module holding the base SPICE simulaton obect.
 
-A Simulation Object reads schematic circuit object, as well as a model input.
+@details A Simulation Object reads schematic circuit object, as well as a model input.
 
-The SpiceSimulation Object can be subclassed to provide different simulation types:
-    -- SingleSimulation    -    Performs a single simulation pass
-    - ParameterSweepSimulation    -    Sweeps through variables in the model input, storing single pass values
-    - OptimizationSimulation    -    Performs a differential optimization routine to find optimal values for a circuit 
+@par The SpiceSimulation Object can be subclassed to provide different simulation types:
+    @li @b SingleSimulation   Performs a single simulation pass
+    @li @b ParameterSweepSimulation Sweeps through variables in the model input, storing single pass values
+    @li @b OptimizationSimulation   Performs a differential optimization routine to find optimal values for a circuit 
 '''
 
 import os
 
 import numpy as np
 
-from utils import log, config
+from utils import log, config, fs
+import utils.config.spice_config as spice_config
+
+from spice.netlist import SpiceNetlist
 import spice.circuit as cir
 from spice.simulation.variable import SimulationInputVariable
 from spice.simulation.result import SimulationResult
@@ -41,7 +45,8 @@ class SpiceSimulation(object):
     
     @todo: Prepare for breakup to subclasses
     
-    @param circuit A Circuit object that is ready for simulation
+    @param circuit (Optional) A SpiceCircuit object that is ready for simulation
+    @param netlist (Optional) A SpiceNetlist to run.  Must be present if no circuit argument provided.
     @param name   (Optional) - The name of the simulation
     @param raw_file  (Optional) - A custom name to assign to raw file output
     @param logger (Optional) - The logger instance to use 
@@ -67,17 +72,99 @@ class SpiceSimulation(object):
 
     
     #_enums = {"Simulation Types":{"Single": 0, "Single Variable Sweep":1, "All Variable Sweep":2, "Optimize":3}}
-    _default_raw_file = "spice_results.raw"
+    _default_raw_file_ext = spice_config.DEFAULT_SPICE_RESULTS_FILE_EXT
     
-    def __init__(self, circuit, name=None, logger=None, raw_file=_default_raw_file):
+    def __init__(self, circuit=None, netlist=None, name=None, logger=None, raw_file=None, output_variables=None):
         '''
         Simulation constructor
         '''
-        if not logger:
-            self.logger = log.getDefaultLogger('spice.simulation.SpiceSimulation')
+        self.logger = logger or log.getDefaultLogger('spice.simulation.simulation.SpiceSimulation')
+        #Assert circuit and netlist are not both defined simultaneously
+        if circuit and netlist:
+            raise SpiceSimulationError("Cannot give both circuit and netlist as input arguments")
+        
+        #Circuit Variables 
+        self.output_variables = output_variables or []
+        self.sim_variables = [] 
+        
+        #Results
+        self.results = SimulationResult()
+        
+        #Add circuit
+        self.setCircuit(circuit)
+        
+        #Add netlist
+        if netlist:
+            self.setNetlist(netlist)
+        
+        #Add name
+        if not name:
+            circuit_name = self.netlist.getName()
+            if not circuit_name:
+                name = config.DEFAULT_SPICE_SIMULATION_NAME
         else:
-            self.logger = logger
-            
+            self.name = name
+        
+        #Raw file
+        self.raw_file_path = ''
+        self.raw_file_name = ''
+        self.setRawFile(file_name=raw_file)
+        
+        #Working directories
+        self.original_working_directory = self.working_directory = os.getcwd()
+
+
+    def setRawFile(self, file_name=None):
+        '''
+        Auto-generate a raw file name from the netlist
+        '''
+        netlist = self.getNetlist()
+        if netlist:
+            netlist_file_name = netlist.getFileName()
+            raw_file_name = file_name or os.path.splitext(netlist_file_name)[0] + self._default_raw_file_ext
+        
+            self.raw_file_name = raw_file_name
+            self.raw_file_path = os.path.join(os.path.dirname(netlist.getFilePath()), self.raw_file_name)
+    
+    def getRawFileName(self):
+        return self.raw_file_name
+    
+    def getRawFilePath(self):
+        return self.raw_file_path
+    
+        
+    def setName(self, name):
+        '''
+        sets the simulation name
+        '''
+        self.name = name
+        
+        
+    def getName(self):
+        '''
+        return the simulation name
+        '''
+        return self.name
+    
+    
+    def getSimVariables(self):
+        '''
+        return all of the simulation variables
+        '''
+        return self.sim_variables
+    
+    
+    def setCircuit(self, circuit):
+        '''
+        @brief Sets a new circuit file to use for simulation
+        @throws spice.simulation.simulation.SpiceSimulationError If there is a problem with the crcuit given
+        @param circuit Can be a str path to a schematic file or a spice.circuit.SpiceCircuit object
+        
+        '''
+        if not circuit:
+            self.circuit = None
+            return
+        
         if not isinstance(circuit, cir.SpiceCircuit):
             if isinstance(circuit, (str, unicode)):
                 try:
@@ -86,187 +173,55 @@ class SpiceSimulation(object):
                     raise SpiceSimulationError("No schematic circuit file path given in arguments") 
             else:
                 raise SpiceSimulationError("No schematic circuit given in arguments")
-        
+            
         self.circuit = circuit
+        try:
+            self.setNetlist(self.circuit.generateSpiceNetlist())
+        except Exception, msg:
+            self.logger.error("Error creating netlist: %s"%(msg))
         
-        if not name:
-            circuit_name = circuit.getName()
-            if not circuit_name:
-                name = config.DEFAULT_SPICE_SIMULATION_NAME
-        else:
-            self.name = name
-        
-        self.raw_file = raw_file
-        
-        #Circuit Variables 
-        #TODO: Now use the custom container, variable.SimulationVariable
-        '''
-        The Variables dict has an internal structure of
-        {"VariableName": {"default": default_value,
-                         "bounds": numpy.ndarray([lower_bounds, upper_bounds])
-                         "values": numpy.ndarray([value1, value2, ...])
-                         },
-        "VariableName2:{...},
-        ...
-        }
-        '''
-        self.sim_variables = []  
-        ''' 
-        var_template = {"default": None,
-                        "values": np.array([]),
-                        "bounds": np.array([0, 0])}
-        '''
-        for var in circuit.parseVariables():
-            self.sim_variables.append(SimulationInputVariable(name=var))
-        #self.sim_var_ranges = {}
-        #[self.sim_var_ranges.__setitem__(key, np.array()) for key in self.sim_vars]
-        #self.default_values = {}
-        #[self.default_values.__setitem__(key, None) for key in self.sim_vars]
-        
-        
-        self.netlist = self.circuit.generateSpiceNetlist()
-        
-        self.simulation_type = None
-    
-    def setName(self, name):
-        '''
-        sets the simulation name
-        '''
-        self.name = name
-        
-    def getName(self):
-        '''
-        return the simulation name
-        '''
-        return self.name
-    
-    def getSimVars(self):
-        '''
-        return all of the simulation variables
-        '''
-        return self.sim_variables.keys()
-    
-    #TODO: Delete due to existance in Variable object
-    """
-    def getSimVarRange(self, var_name):
-        '''
-        
-        '''
-        return self.sim_var_ranges[var_name]
-    
-    def getSimVariableBounds(self, var_name):
-        return self.sim_variables[var_name]["bounds"]
-    
-    def getSimVariableDefault(self, var_name):
-        return self.sim_variables[var_name]["default"]
-    
-    def getSimVariableValues(self, var_name):
-        return self.sim_variables[var_name]["values"]
-    
-    def setSimVariableBounds(self, var_name, lower_bound, upper_bound):
-        '''
-        '''
-        self.sim_variables[var_name]["bounds"][0] = lower_bound
-        self.sim_variables[var_name]["bounds"][1] = upper_bound
-        
-    def setSimVariableDefault(self, var_name, value):
-        '''
-        '''
-        self.sim_variables[var_name]["default"] = value
-        
-    def setSimVariableValues(self, var_name, values):
-        '''
-        '''
-        self.sim_variables[var_name]["values"] = values
-        
-    def setSimVariableValuesFromBounds(self, var_name, n=None, type_='lin'):
-        '''
-        creates an n length object of values, separated by the type.
-        
-        type: 
-            lin - linearly spaced
-            log - logarithmically spaced
-        '''
-        if not n:
-            n = config
-        lower_bound, upper_bound = self.getSimVariableBounds(var_name)
-        
-        if type_ == "lin":
             
-            self.sim_variables[var_name]["values"] = np.linspace(lower_bound, upper_bound, n)
-            
-        elif type_ == "log":
-            
-            self.sim_variables[var_name]["values"] = np.logspace(lower_bound, upper_bound, n)
-            
-    def setSimVariableBoundsFromValues(self, var_name):
+    def setNetlist(self, netlist):
+        '''
+        @brief sets the current simulation netlist
+        @param netlist a SpiceNetlist object
+        @throws SpiceSimulationError if the object is not a SpiceNetlist object
+        '''
+        if not netlist:
+            self.netlist = netlist
+            return 
+        elif not isinstance(netlist, SpiceNetlist ):
+            raise SpiceSimulationError("netlist argument is not a SpiceNetlist object: %s"%(netlist))
         
-        lower_bound = min(self.getSimVariableValues(var_name))
-        upper_bound = max(self.getSimVariableValues(var_name))
+        self.netlist = netlist
+        self.parseVariables()
+       
         
-        self.setSimVariableBounds(var_name, lower_bound, upper_bound)
-    #TODO: Variable methods end here    
-    """
-    def getSimType(self):
-        return self.simulation_type
+    def getNetlist(self):
+        return self.netlist
     
-    def setSimType(self, type_):
-        self.simulation_type = type_
-            
-    """    
-    def setSimulationVariableByBounds(self, var_name, values):
-        '''
-        Sets a single simulation variable, var_name to the values
-        given in values
-        
-        Values can be any array of length 2, [lower_bounds, upper_bounds] entry, and a
-        values array will be generated
-        '''    
-        
-        if not isinstance(values, list):
-            raise SpiceSimulationError("values must be given as a list")
-        if len(values) == 1:
-            values = [0, values[0]]
-        if not len(values) == 2:
-            raise SpiceSimulationError("values requires a [lower_bound, upper_bound] format")
-        
-        
-        
-        self.setSimulationVariable(var_name, np.arange(values[0], values[1], (values[1] - values[0]) *1.0 / self._default_array_length))
     
-    def setSimulationVariable(self, type_, var_name, values):
+    def setOutputVariables(self, variable_names):
         '''
-        Sets a variable to a value.
-        
-        The value must be a list or numpy array
+        @brief Sets the Simulation Output variables
         '''
-        if not isinstance(values, (list, np.ndarray)):
-            raise SpiceSimulationError("values must be given as a list or numpy array")
+        for vector in variable_names:
+            self.results.addOutputVector(vector)
+       
         
-        if not var_name in self.getSimVars():
-            raise SpiceSimulationError("Variable %s does not exist in circuit: %s"%(var_name, self.circuit.getName()))
-        
-        self.sim_var_ranges[var_name] = np.array(values)
-        
-    def setSimulationVariableValuesByDict(self, values_dict):
+    def parseVariables(self):
         '''
-        allows programatically setting all variable values with a dict
-        
-        values_dict = {var_name1: list1, var_name2:}
+        checks the current netlist for variables and creates a new SpiceSimulationInput variable
         '''
-        if not isinstance(values_dict, dict):
-            raise SpiceSimulationError("values_Dict must be a dict object")
- 
-        for var_name in values_dict.get_keys():
-            if not var_name in self.getSimVars():
-                raise SpiceSimulationError("Error with values_dict.  Var Name %s non existent in circuit")
-            
-            values = values_dict[var_name]
-            if not isinstance(values, (list, np.ndarray)):
-                raise SpiceSimulationError("Value of variable %s must be a list object"%(var_name))
-            
-            self.setSimulationVariable(var_name, values)   
-    """         
+        netlist = self.getNetlist()
+        if netlist:
+            self.netlist_vars = netlist.parseVariables()
+            for var in self.netlist_vars:
+                self.sim_variables.append(SimulationInputVariable(name=var))
+                self.results.addOutputVector(var)
+            self.logger.debug("Parsed the following variables from netlist file: %s "%(str(self.netlist_vars)))
+
+     
     def _checkSimulation(self):    
         '''
         Need to check the following things
@@ -274,11 +229,7 @@ class SpiceSimulation(object):
         if not self._checkSimVariablesValues():
             raise SpiceSimulationError("Not all simulation variable values are complete")
         
-    def _checkRunType(self):
-        '''
-        Checks what sort of simulation can be run with the present simulator variables
         
-        '''    
         
     
     def _checkSimVariablesValues(self):
@@ -294,32 +245,27 @@ class SpiceSimulation(object):
                 return False
         return result 
     
-
-    def generateNetlist(self, **kwargs):
-        '''
-        generates a netlist from the current circuit
-        '''
-        self.netlist = self.circuit.generateSpiceNetlist(logger=self.logger, **kwargs)
-    
-    def _runSpice(self, netlist):
+        
+    def _runSpice(self, netlist=None):
         '''
         Run a NGSPICE simulation in batch mode on the current netlist
         '''
-        return os.system('ngspice -b -r %s %s'%(self.raw_file, netlist))
-    
-    #TODO: Fit all this under a subclass
-    def _runSingle(self):
-        '''
-        Runs the variables with their default configuration, returns a simulation result object
-        '''
-        variables = {}
-        result = SimulationResult(type_=SimulationTypesEnums.SINGLE, variables=self.getSimVars())
+        netlist = netlist or self.getNetlist()
+        if not netlist:
+            return None
         
-        for var_name in self.getSimVars():
-            variables[var_name] = self.getSimVariableDefault(var_name)
-            
-        tmp_netlist = self.netlist.setVariables(variables) 
-        self._runSpice(tmp_netlist)   
+        result = os.system('ngspice -b -r %s %s'%(self.getRawFileName(), netlist.getTempFilePath()))
+        if result != 0:
+            self.logger.error("Ngspice run returned a fail result")
+        
+        else:
+            fs.waitForFile(self.getRawFilePath())
+        
+            self.results.readRawFile(self.getRawFilePath())
+        #Read the results rawfile and build a SimulationResult object
+                
+
+    
     
     def run(self):
         '''
@@ -339,8 +285,71 @@ class SpiceSimulation(object):
             
         return result
 
+    def runSetup(self):
+        '''
+        @brief Perform these actions at the start of each simulation
+        '''
+        #switch the working directory
+        netlist = self.getNetlist()
+        if not netlist:
+            raise SpiceSimulationError("No netlist defined for simulation.  Aborting run")
+        
+        self.working_directory = fs.switchWDFromFilePath(netlist.getTempFileName())
+        
+    def runTearDown(self):
+        os.chdir(self.original_working_directory)
+        self.working_directory = self.original_working_directory
+        
+        
+class SingleSimulationError(SpiceSimulationError):
+    pass
 
 class SingleSimulation(SpiceSimulation):
     '''
+    @brief Class to perform a single simulation
+    @details
+    Running a single simulation looks a little something like this:
+    The simulation conditions need to be checked first: 
+    This includes: 
+    @li check there is a valid netlist object stored
+    @li Check whether there are any variables to substitute
+    @li If yes, then take the default values for each variable, or take an input argument with the run method, with 
+    {'var_name':value} pairs
+    @li if no variables in netlist, then copy to the temp file
+    @li single sim is run, results are saved in the local results attribute
     
     '''
+    
+    def __init__(self, **kwargs):
+        SpiceSimulation.__init__(self, **kwargs)
+        
+    def run(self, input_variables=None):
+        
+        self.runSetup()
+        self._runSingle(input_variables=input_variables)
+        self.runTearDown()
+        return self.results
+    
+    def _runSingle(self, input_variables=None):
+        '''
+        @brief run a single simulation
+        @param input_variables a dict mapping of variable names and values to run.  If
+        nothing is given, then the defaults will be used
+        '''
+        netlist = self.getNetlist()
+        if netlist:
+            #Sim Input Variables
+            sim_vars = self.getSimVariables()
+            
+            variable_mapping = input_variables or {}
+            
+            if not variable_mapping:
+                #If no variables provided, take the defaults
+                for variable in sim_vars:
+                    variable_mapping[variable.getName(), variable.getDefault()]
+            netlist.substituteVariables(variable_mapping)
+                
+            self._runSpice()    
+        
+        
+    

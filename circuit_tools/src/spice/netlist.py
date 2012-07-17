@@ -22,6 +22,9 @@ class SpiceNetlist(Netlist):
     @brief A SPICE netlist object.
     @details Takes a different default file extension than a regular netlist.
     Also has the ability to handle variables, parsing and substitution into a temp path
+    @todo add ability to modify control block to customize simulation control @par This would 
+    consist of adding and removing any sim commands such as tran ac as well as controlling 
+    any vectors written to a raw file
     '''
     _netlist_scheme = _netlist_scheme
 

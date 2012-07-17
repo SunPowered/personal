@@ -47,11 +47,10 @@ class Netlist(object):
             file_path = args[0]
         else:
             file_path = None
+        self.file_name = ''
+        self.file_path = ''
         self.setFilePath(file_path)
             
-        #if not os.path.isfile(file_path):
-        #    raise NetlistError("File does not exist: %s"%(self.file_path))
-
         #type init
         self.setType(kwargs.get('type', None))
         self.setNetlistScheme(kwargs.get('netlist_scheme', None))
@@ -73,6 +72,11 @@ class Netlist(object):
             '''
             self.setName(os.path.splitext(os.path.split(file_path)[1])[0])
         self.file_path = file_path
+        self.file_name = os.path.split(file_path)[1]
+    
+    def getFileName(self):
+        return self.file_name
+    
         
     def getFilePath(self):
         '''
@@ -123,12 +127,6 @@ class Netlist(object):
         '''
         self.netlist_scheme = netlist_scheme
             
-    def getFilePath(self):
-        '''
-        @brief Return the current netlist file path
-        @return a string file path
-        '''
-        return self.file_path
        
     def removeNetlistFile(self):
         '''

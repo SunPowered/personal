@@ -33,6 +33,8 @@ class SimulationVariable(object):
         
         self.name = name
         self.units = units
+        self.scale_vector = []
+        self.data = []
         
     def setUnits(self, units):
         '''
@@ -47,6 +49,34 @@ class SimulationVariable(object):
         @return str Current units
         '''
         return self.units
+
+    def setData(self, data):
+        '''
+        @brief Set units for a variable
+        @param units The units to print back
+        '''
+        self.data = data
+    
+    def getData(self):
+        '''
+        @brief returns the units
+        @return str Current units
+        '''
+        return self.data    
+    
+    def setScaleVector(self, scale_vector):
+        '''
+        @brief Set units for a variable
+        @param units The units to print back
+        '''
+        self.scale_vector = scale_vector
+    
+    def getScaleVector(self):
+        '''
+        @brief returns the units
+        @return str Current units
+        '''
+        return self.scale_vector
     
     def setName(self, name):
         '''
@@ -62,7 +92,17 @@ class SimulationVariable(object):
         '''
         return self.name
     
+   
+def getSpiceFriendlyName(vector_name):
+    '''
+    @brief helper function to modify some allowed spice vector
+    names which break python, i.e. '(',')'
+    '''
+    vector_name = vector_name.replace("(", "_")
+    vector_name = vector_name.replace(")", "")
     
+    return vector_name
+
 class SimulationInputVariable(SimulationVariable):
     '''
     @brief Custom object to hold a simulation input variable data
