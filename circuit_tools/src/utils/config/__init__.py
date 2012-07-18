@@ -13,6 +13,9 @@ VARIABLE_FLAG_RE = r"\$"
 
 #Array Configurations
 DEFAULT_ARRAY_LENGTH = 10
+
+#SYSTEM DEBUG
+DEBUG=False
 '''
 make all other config modules available from the top package
 '''

@@ -254,22 +254,47 @@ class SpiceSimulation(object):
         if not netlist:
             return None
         
-        result = os.system('ngspice -b -r %s %s'%(self.getRawFileName(), netlist.getTempFilePath()))
-        if result != 0:
-            self.logger.error("Ngspice run returned a fail result")
-        
+        cmd = 'ngspice -b -a %s -r %s'%( netlist.getTempFilePath(), self.getRawFileName())
+        if not config.DEBUG:
+            result = os.system(cmd + ' 2>&1')
         else:
+            result = os.system(cmd)
+            
+        if result != 0:
+            self.logger.error("Ngspice run returned a fail result.  check the netlist: %s"%(netlist.getTempFilePath()))
+        else:
+            #If no error, check the raw file exists and read its results into
+            #the results object
+            
             fs.waitForFile(self.getRawFilePath())
         
             self.results.readRawFile(self.getRawFilePath())
-        #Read the results rawfile and build a SimulationResult object
-                
 
-    
-    
+    def _runSingle(self, input_variables=None):
+        '''
+        @brief run a single simulation
+        @param input_variables a dict mapping of variable names and values to run.  If
+        nothing is given, then the defaults will be used
+        '''
+        netlist = self.getNetlist()
+        if netlist:
+            #Sim Input Variables
+            sim_vars = self.getSimVariables()
+            
+            variable_mapping = input_variables or {}
+            
+            if not variable_mapping:
+                #If no variables provided, take the defaults
+                for variable in sim_vars:
+                    variable_mapping[variable.getName(), variable.getDefault()]
+            netlist.substituteVariables(variable_mapping)
+                
+            self._runSpice()   
+            
+            
     def run(self):
         '''
-        Runs the ngspice simulation
+        @todo: maybe make a quasi intelligent simulation runner based on variable states
         '''
         try:
             self._checkSimulation()
@@ -291,12 +316,15 @@ class SpiceSimulation(object):
         '''
         #switch the working directory
         netlist = self.getNetlist()
+        
         if not netlist:
             raise SpiceSimulationError("No netlist defined for simulation.  Aborting run")
         
+        #Switch the working directory to that of the netlist's temp file
         self.working_directory = fs.switchWDFromFilePath(netlist.getTempFileName())
         
     def runTearDown(self):
+        #Return the working directory
         os.chdir(self.original_working_directory)
         self.working_directory = self.original_working_directory
         
@@ -330,26 +358,7 @@ class SingleSimulation(SpiceSimulation):
         self.runTearDown()
         return self.results
     
-    def _runSingle(self, input_variables=None):
-        '''
-        @brief run a single simulation
-        @param input_variables a dict mapping of variable names and values to run.  If
-        nothing is given, then the defaults will be used
-        '''
-        netlist = self.getNetlist()
-        if netlist:
-            #Sim Input Variables
-            sim_vars = self.getSimVariables()
-            
-            variable_mapping = input_variables or {}
-            
-            if not variable_mapping:
-                #If no variables provided, take the defaults
-                for variable in sim_vars:
-                    variable_mapping[variable.getName(), variable.getDefault()]
-            netlist.substituteVariables(variable_mapping)
-                
-            self._runSpice()    
+ 
         
         
     

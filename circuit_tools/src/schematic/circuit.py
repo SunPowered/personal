@@ -161,7 +161,12 @@ class Circuit(object):
         #Run gnetlist 
         n = ''
         self.logger.info("Generating netlist of circuit %s"%(self.getName()))
-        result = os.system("gnetlist -g %s -o %s %s"%(scm_type, output_file_path, self.file_path))
+        cmd = "gnetlist -I -q -g %s -o %s %s"%(scm_type, output_file_path, self.file_path)
+        if config.DEBUG:
+            result = os.system(cmd)
+        else:
+            result = os.system(cmd + ' 2>&1')
+            
         if result != 0:
             self.logger.error("Error occurred during netlist creation")
         else:

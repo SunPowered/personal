@@ -7,15 +7,17 @@ import os
 import time
 import unittest
 
+from utils.fs import waitForFile
+
 from spice.netlist import SpiceNetlist
 from spice.circuit import SpiceCircuit
 
 def print_timing(func):
     def wrapper(*arg, **kwarg):
-        t1 = time.clock()
+        t1 = time.time()
         res = func(*arg, **kwarg)
-        t2 = time.clock()
-        print '%s took %i counts and took %0.3fms' % (func.func_name, res, (t2-t1)*1000.0)
+        t2 = time.time()
+        print '%s took %0.3fms' % (func.func_name, (t2-t1)*1000.0)
         return res
     return wrapper
 
@@ -23,14 +25,17 @@ class CircuitGenerateSpiceNetlistTest(unittest.TestCase):
     '''
     Test spice netlist generation from a schematic circuit
     '''       
+    #@print_timing
+    #def waitForFileToExist(self, file_path, count=10, timeo=1):
+    #    if (count == 0) or (os.path.isfile(file_path)):
+    #        return count
+    #    
+    #    time.sleep(timeo)
+    #    self.waitForFileToExist(count-1, timeo)
+    
     @print_timing
-    def waitForFileToExist(self, file_path, count=10, timeo=1):
-        if (count == 0) or (os.path.isfile(file_path)):
-            return count
-        
-        time.sleep(timeo)
-        self.waitForFileToExist(count-1, timeo)
-        
+    def waitForFileToExist(self, file_path, interval=None):
+        waitForFile(file_path, interval=interval)    
     def setUp(self):
         
         self.file_name = 'schmitt.trigger.sim.sch'
@@ -43,6 +48,7 @@ class CircuitGenerateSpiceNetlistTest(unittest.TestCase):
         except OSError:
             pass
         self.netlist = self.cir.generateSpiceNetlist()
+        
         self.waitForFileToExist(self.netlist.getFilePath())
     def testNoErrorAndType(self):
         '''
@@ -58,7 +64,7 @@ class CircuitGenerateSpiceNetlistTest(unittest.TestCase):
 
         circuit_variables = self.cir.parseVariables()
         netlist_variables = self.netlist.parseVariables()
-        self.assertEqual(circuit_variables, netlist_variables , "Variables from schematic and netlist are not equal")
+        self.assertEqual(circuit_variables, netlist_variables , "Variables from schematic and netlist are not equal. %s : %s"%(circuit_variables, netlist_variables))
         
     def tearDown(self):
         self.netlist.removeNetlistFile()

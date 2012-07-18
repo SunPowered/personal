@@ -8,6 +8,8 @@ import os
 
 import logging
 
+from utils import config
+
 #Log variables
 LOG_PATH = os.path.normpath(os.path.join(os.path.basename(__file__), os.pardir, os.pardir, 'log'))
 
@@ -15,7 +17,11 @@ LOG_PATH = os.path.normpath(os.path.join(os.path.basename(__file__), os.pardir, 
 #_default_format = "[ %(levelname)s : %(name)s ] - %(message)s"
 _default_format = "%(message)s"
 #Default log level
-_default_level = logging.DEBUG
+if config.DEBUG:
+    _default_level = logging.DEBUG
+else:
+    _default_level = logging.INFO
+    
 #Default logger
 
 #Null Logger
@@ -26,6 +32,7 @@ def NullLogger():
     '''
     logger = logging.getLogger("Null")
     logger.setLevel(logging.DEBUG)
+   
     handler = logging.NullHandler()
     logger.addHandler(handler)
     return logger
