@@ -89,10 +89,20 @@ class BOMComponentList(ComponentList):
     element_obj = BOMComponent
     
     @property
-    def total_number_parts(self):
+    def total_number_parts(self, *args):
         '''
         @brief Returns the total part count for the list
+        @param args (Opt) Use this to specifiy a criteria to select.  Use a attribute, value
+        pair for the *args tuple
         '''
+        if args:
+            try:
+                attribute, value = args
+            except:
+                raise BOMComponentError("If arguments are to be provdided, they must be in a attribute, value pair")
+            else:
+                return sum([x.getQuantity() for x in self.find(attribute, value)])
+            
         return sum([x.getQuantity() for x in self])  
     
     @property

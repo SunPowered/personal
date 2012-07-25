@@ -45,8 +45,7 @@ class CircuitComponentTest(unittest.TestCase):
         self.cir.parseComponents()
         self.assertTrue(len(self.cir.getComponentList()) > 0, "Empty component list")
         #self.assertTrue(len(self.cir.getUniqueComponents()) > 0, "Empty Unique Component List")
-        
-        
+            
 class CircuitComponentParseHierarchical(object):
     '''
     TODO:  Test hierarchical traversal

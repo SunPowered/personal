@@ -93,6 +93,8 @@ class Component(object):
         @brief A method to return a given attribute
         @return the attribute value if it exists, '' otherwise
         '''
+        attribute = str(attribute).replace("-","_")
+        
         if attribute in self.attributes:
             return self.__getattribute__(attribute)
         else:

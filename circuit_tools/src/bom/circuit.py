@@ -6,6 +6,8 @@
 '''
 import re
 
+import prettytable
+
 from utils import log, config
 from schematic.circuit import Circuit, CircuitError, CircuitFileError
 from bom.component import BOMComponent, BOMComponentList, BOMComponentError
@@ -55,6 +57,13 @@ class BOMCircuit(Circuit):
         
         #Regex for an attribute within a component 
         self.attribute_re = re.compile(r"^(.+)=(.+)", re.M)
+        
+        #Try to parse if file path was given
+        if self.getFileName():
+            try:
+                self.parseComponents()
+            except BOMCircuitParserError, msg:
+                self.logger.error("There was a parsing error during BOMCircuit init.  Ignoring")
     
     def __contains__(self, comp):
         '''
@@ -201,9 +210,9 @@ class BOMCircuit(Circuit):
                             
                     
                 #Catch identical refdes components
-                refdesMatches = self.component_list.find('refdes', attributes['refdes'])
-                if refdesMatches:
-                    self.logger.warning('%i identical refdes match(es) found! %s'%(len(refdesMatches), attributes['refdes']))
+                #refdesMatches = self.component_list.find('refdes', attributes['refdes'])
+                #if refdesMatches:
+                #    self.logger.warning('%i identical refdes match(es) found! %s'%(len(refdesMatches), attributes['refdes']))
                     #if self.ignoreMultipleRefdes:
                         #self._ignoreComponent(comp)
                     #    continue
@@ -235,3 +244,90 @@ class BOMCircuit(Circuit):
         '''
         return not (comp in self.component_list)
     
+    def printComponentsToFile(self, file_name=None):
+        '''
+        For now, just print the required attributes of the components, plus the refdes
+        
+        Should be sorted by device, then by value, then by manufacturer
+        
+        Output format is currently tab delimited
+        @todo implement a better templating mechanism
+        '''
+        required_attributes = config.bom_config.BOM_PARSE_MODEL["REQUIRED_ATTRIBUTES"]
+        
+        if not file_name:
+            circuit_name = self.getName()
+            if not circuit_name:
+                file_name = config.bom_config.DEFAULT_BOM_NAME + config.bom_config.BOM_EXTENSION
+            else:
+                file_name = circuit_name + config.bom_config.BOM_EXTENSION
+        
+        #open file for writing
+        try:
+            f = open(file_name, 'w')
+        except Exception, msg:
+            raise BOMCircuitError("Error opening File to write: %s.  Failed with message: %s"%(file_name, msg))
+        
+        
+        #print header
+        header = "Qty."
+        header += "\t"
+        for attr in required_attributes:
+            #reformat for printing
+            attr = " ".join(attr.split("_"))
+            
+
+        
+            header += attr
+            header += "\t"
+        header += "\n"
+        
+        f.write(header)
+        
+        #Print components
+        for component in self.getComponentList():
+            line = ""
+            line += "%i"%(component.getQuantity())
+            line += "\t"
+            for attr in required_attributes:
+                
+                line += component.getAttribute(attr) or "\t"
+                line += "\t"
+                
+            line += "\n"
+            
+            f.write(line)
+            
+        f.close()
+        
+    def printComponentsToFile2(self, file_name=None):
+        '''
+        Using the prettytable library
+        '''
+        required_attributes = config.bom_config.BOM_PARSE_MODEL["REQUIRED_ATTRIBUTES"]
+        
+        if not file_name:
+            circuit_name = self.getName()
+            if not circuit_name:
+                file_name = config.bom_config.DEFAULT_BOM_NAME + config.bom_config.BOM_EXTENSION
+            else:
+                file_name = circuit_name + config.bom_config.BOM_EXTENSION
+                
+        fields = ["Quantity"]
+        for attr in required_attributes:
+            attr = " ".join(attr.split("_"))
+            fields.append(attr.capitalize())
+            
+        table = prettytable.PrettyTable(fields)
+        #table.set_field_align("Quantity", 'l')
+        table.set_style(prettytable.PLAIN_COLUMNS)
+        
+        for component in self.getComponentList():
+            line = [component.getQuantity()]
+            for attr in required_attributes:
+                line.append(component.getAttribute(attr))
+                
+            table.add_row(line)
+            
+        open(file_name, 'w').write(str(table))
+        
