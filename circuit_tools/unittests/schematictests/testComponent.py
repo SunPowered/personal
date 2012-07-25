@@ -91,23 +91,28 @@ class ComponentListTest(unittest.TestCase):
             comp = Component(**attributes)
             components.append(comp)
         
-        attrs = {'manufacturer':'JST',
+        attrs = {'refdes': 'CONN1',
+                 'manufacturer':'JST',
                  'part_number':'S2B-PH-SM4-TB'}
         newComponent(**attrs)
 
-        attrs = {'manufacturer':'Microchip',
+        attrs = {'refdes': 'U1',
+                 'manufacturer':'Microchip',
                  'part_number':'MCP6002-I/SN'}
         newComponent(**attrs)
         
-        attrs = {'manufacturer':'Vishay Siliconix',
+        attrs = {'refdes': 'Q1',
+                 'manufacturer':'Vishay Siliconix',
                  'part_number':'SI2302ADS-T1-E3'}
         newComponent(**attrs)
         
-        attrs = {'manufacturer':'Panasonic',
+        attrs = {'refdes': 'R1',
+                 'manufacturer':'Panasonic',
                  'part_number':'ERJ-3GEYJ102V'}
         newComponent(**attrs)
         
-        attrs = {'manufacturer':'Stackpole Electronics',
+        attrs = {'refdes': 'R2',
+                 'manufacturer':'Stackpole Electronics',
                  'part_number':'RHC2512FT10R0'}
         newComponent(**attrs)
         

@@ -246,62 +246,6 @@ class BOMCircuit(Circuit):
     
     def printComponentsToFile(self, file_name=None):
         '''
-        For now, just print the required attributes of the components, plus the refdes
-        
-        Should be sorted by device, then by value, then by manufacturer
-        
-        Output format is currently tab delimited
-        @todo implement a better templating mechanism
-        '''
-        required_attributes = config.bom_config.BOM_PARSE_MODEL["REQUIRED_ATTRIBUTES"]
-        
-        if not file_name:
-            circuit_name = self.getName()
-            if not circuit_name:
-                file_name = config.bom_config.DEFAULT_BOM_NAME + config.bom_config.BOM_EXTENSION
-            else:
-                file_name = circuit_name + config.bom_config.BOM_EXTENSION
-        
-        #open file for writing
-        try:
-            f = open(file_name, 'w')
-        except Exception, msg:
-            raise BOMCircuitError("Error opening File to write: %s.  Failed with message: %s"%(file_name, msg))
-        
-        
-        #print header
-        header = "Qty."
-        header += "\t"
-        for attr in required_attributes:
-            #reformat for printing
-            attr = " ".join(attr.split("_"))
-            
-
-        
-            header += attr
-            header += "\t"
-        header += "\n"
-        
-        f.write(header)
-        
-        #Print components
-        for component in self.getComponentList():
-            line = ""
-            line += "%i"%(component.getQuantity())
-            line += "\t"
-            for attr in required_attributes:
-                
-                line += component.getAttribute(attr) or "\t"
-                line += "\t"
-                
-            line += "\n"
-            
-            f.write(line)
-            
-        f.close()
-        
-    def printComponentsToFile2(self, file_name=None):
-        '''
         Using the prettytable library
         '''
         required_attributes = config.bom_config.BOM_PARSE_MODEL["REQUIRED_ATTRIBUTES"]
