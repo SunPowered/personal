@@ -22,6 +22,7 @@ class Component(object):
     @brief General schematic component class.  To be inherited by higher level component objects      
     '''
     _required_attributes = ['refdes']
+    _ignored_attributes = []
     
     def __init__(self, logger=None, **kwargs):
         '''
@@ -48,7 +49,9 @@ class Component(object):
         @param b the object to compare
         '''
         result = True
-        for attr in self.getAttributes():
+        for attr in self._required_attributes:
+            if attr in self._ignored_attributes:
+                continue
             
             attr1 = self.getAttribute(attr)
             attr2 = b.getAttribute(attr)
@@ -62,6 +65,21 @@ class Component(object):
         #Should be true if we got this far    
         return result
     
+    def __repr__(self):
+        '''
+        '''
+        s = ''
+        attrs = self.getAttributes()
+        attrs.sort()
+        
+        for attr in attrs:
+            s+='['
+            s+=attr
+            s+='->'
+            s+=self.getAttribute(attr)
+            s+=']'
+        return "Component%s"%(s)
+    
     def hasAttribute(self, attribute):
         '''
         @brief Checks whether this component has a given attribute
@@ -73,17 +91,17 @@ class Component(object):
     def getAttribute(self, attribute):
         '''
         @brief A method to return a given attribute
-        @return the attribute value if it exists, [] otherwise
+        @return the attribute value if it exists, '' otherwise
         '''
         if attribute in self.attributes:
             return self.__getattribute__(attribute)
         else:
-            return []
+            return ''
         
     def setAttribute(self, attribute, value):
         '''
         @brief Set a new component attribute to a value
-        
+        @details
         Replaces any schematic friendly "-" character with a python friendly "_" \n
         If attribute already exists, either create a list of the old and new attribute
         or append it to the existing list
@@ -149,52 +167,37 @@ class Component(object):
 class ComponentListError(Exception):
     pass
         
-class ComponentList(object):
+
+
+       
+class ComponentList(list):
     '''
     @brief An object for storing and sorting Components
+
     '''
-    def __init__(self, iterable=None, name=None):
+    def __init__(self, *args, **kwargs):
         '''
         @brief ComponentList Constructor
-        @param iterable (Opt) An initial list to parse into storage
+        @param args (Opt) An initial list to parse into storage
         @param name (Opt) A name to assign to the component list
         '''
-        self.elements = []
+        if args:
+            iterable = args[0]
+        else:
+            iterable = []
+            
+        list.__init__(self)
+        #self.elements = []
 
-        self.name = name  
+        self.name = kwargs.get('name', None)  
         self.element_obj = Component   
     
         if iterable:
-            for value in iterable:
-                self.elements.append(value)
-        
-    def __repr__(self):
-        '''
-        @brief __repr__ override
-        '''
-        #import pprint
-        #pprint.pprint(self.elements)
-        return str(self.elements)
-              
-    def __contains__(self,y):
-        '''
-        @brief __contains__ override
-        @param y object to pass to contains
-        ''' 
-        return self.elements.__contains__(y)
-    
-    def __iter__(self):
-        '''
-        @brief iterate over the list
-        '''
-        return self.elements.__iter__()
-    
-    def __len__(self):
-        '''
-        @brief __len__ override
-        '''
-        return self.elements.__len__()
-    
+            for item in iterable:
+                self.append(item)
+                
+
+
     def setName(self, name):
         '''
         @brief Sets the name of the component list
@@ -215,11 +218,12 @@ class ComponentList(object):
         @param obj A Component to append
         @throw schematic.component.ComponentListError When a component already exists in the list, as determined by findIndex() 
         '''
-        found_index = self.findIndex(obj)
+        found_index = self.findIndexByComponent(obj)
         if found_index:
             raise ComponentListError("Element with attributes already exist in list.  %s Cannot append"%(str(obj)))
-        return self.elements.append(obj)
-    
+        #return self.elements.append(obj)
+        list.append(self, obj)
+        
     def find(self, attribute, value):
         '''
         @brief Finds all components matching the attribute value provided
@@ -227,20 +231,29 @@ class ComponentList(object):
         @param value The value of the attribute to find
         @return a component list of the matched objects
         '''
-        c = ComponentList()
+        c = []
         for component in filter(lambda component: component.getAttribute(attribute)==value, self):
             c.append(component)
             
         return c
     
-    def findIndex(self, comp):
+    def findIndexByComponent(self, comp):
         '''
         @brief Search for a given component in the stored elements, return a list of matching indices
         @param comp A component to search for
         @return a list of indices of matching components
         '''
-        return [i for i, component in enumerate(self.elements) if component == comp]
-        
+        return [i for i, component in enumerate(list(self)) if component == comp]
+    
+    def findIndex(self, attribute, value):
+        '''
+        @brief Same as findIndexByComponent but searches for an attribute value pair in the list
+        @param attribute str the attribute to search for
+        @param value the value to search
+        @return a list of indices of matching components 
+        '''
+        return [i for i, component in enumerate(list(self)) if component.getAttribute(attribute) == value]
+    
     def findAndPop(self, attribute, value):
         '''
         @brief Similar to find() but removes the matching entries from the list
@@ -248,12 +261,12 @@ class ComponentList(object):
         @param value The value of the attribute to find
         @return a list of indices that were found and removed
         '''
-        matches = self.find(attribute, value)
-        indices = []
+        matches = self.findIndex(attribute, value)
+        components = []
         for match in matches:
-            indices.append(self.elements.pop())
+            components.append(list.pop(self, match))
             
-        return indices  
+        return components  
      
     def sort(self, attribute=None):
         '''
@@ -281,7 +294,7 @@ class ComponentList(object):
             return cmp(chunka, chunkb)
         
         
-        return self.elements.sort(sortAttr)    
+        return list.sort(self, sortAttr)    
     
      
 if __name__ == "__main__":

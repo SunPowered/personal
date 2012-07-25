@@ -30,7 +30,7 @@ class BOMComponent(Component):
         '''        
         [kwargs.__setitem__(attr, None) for attr in self._required_attributes if attr not in kwargs.keys()]
         Component.__init__(self, **kwargs)
-        self.quantity = 1
+        self.quantity = 1 
         
         #self._ignore_attrs = ["quantity"]
     def __repr__(self):
@@ -38,14 +38,33 @@ class BOMComponent(Component):
         @brief repr override
         @todo Only print required attributes
         '''
-        return "%s[%s][%s - %s](%i)"%(str(self.device), str(self.value), str(self.manufacturer), str(self.part_number), self.quantity)
-    
-    def addAnother(self):
+        try:
+            return "%s[%s][%s - %s](%i)"%(str(self.device), str(self.value), str(self.manufacturer), str(self.part_number), self.quantity)
+        except:
+            return ""
+    def addAnother(self, obj=None):
         '''
         @brief Increase the quantity by one
+        @details  If an object is given as an argument, all non-required attributes will be 
+        appended to the present value.  This serves to keep all unique attributes as they are yet keep 
+        track of variations in non-unique attributes.  
+        e.g. A Panasonic 1K 0603 resistor is used several times in a design.  The part itself is 
+        identified by its unique attributes, yet the refdes of each instance in the circuit is tracked
+        for printing later
         '''
         self.quantity += 1
-        
+        if obj:
+            for attr in obj.getAttributes():
+                if attr not in self._required_attributes:
+                    
+                    value = self.getAttribute(attr)
+                    
+                    if isinstance(value, list):
+                        if obj.getAttribute(attr) not in value: 
+                            value.append(obj.getAttribute(attr))
+                    else:
+                        if obj.getAttribute(attr) != value:
+                            setattr(self, attr, [value, obj.getAttribute(attr)])
     '''
     def setAttribute(self, attribute, value):
         if attribute == "refdes":
@@ -65,16 +84,31 @@ class BOMComponent(Component):
 class BOMComponentList(ComponentList):
     '''
     @brief An object for storing a list of BOM components
+
     '''
+    element_obj = BOMComponent
     
+    @property
+    def total_number_parts(self):
+        '''
+        @brief Returns the total part count for the list
+        '''
+        return sum([x.getQuantity() for x in self])  
     
+    @property
+    def total_unique_parts(self):
+        '''
+        @brief returns the total unique part count for the list
+        '''
+        return len(self) 
+      
     def append(self, obj):
         if isinstance(obj, self.element_obj):
-            index = self.findIndex(obj)
+            index = self.findIndexByComponent(obj)
             if index:
-                self.elements[index[0]].addAnother()
+                self[index[0]].addAnother(obj)
             else:
-                self.elements.append(obj)  
+                list.append(self, obj)  
             
     def sort(self, attribute='device'):
         return super(BOMComponentList, self).sort(attribute=attribute)

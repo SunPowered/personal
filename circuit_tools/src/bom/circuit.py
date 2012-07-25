@@ -32,7 +32,7 @@ class BOMCircuit(Circuit):
     def __init__(self, *args, **kwargs):
         '''
         @brief BOMCircuit constructor class
-        @param args from  
+        @param args from  schematic.circuit.Circuit
         @param kwargs @li required_attributes (Opt) A list of mandatory attributes for each 
         component
         '''
@@ -92,6 +92,7 @@ class BOMCircuit(Circuit):
     def parseComponents(self):
         '''
         @brief Parses schematic file for a BOM Export  
+        @return a component list object
         @throw bom.circuit.BOMCircuitParserError If there was an error during a regex match
         @throw bom.circuit.BOMCircuitParserComponentError  If there is an error during BOMComponent instantiation
         @details
@@ -216,7 +217,7 @@ class BOMCircuit(Circuit):
                     raise BOMCircuitParserComponentError("Error creating BOM component: %s"%(msg))
                 
                 #attach to component list
-                self._addComponentToLists(comp)
+                self.component_list.append(comp)
                 del comp
             
         self.logger.info('Schematic parse returned %i valid components'%(len(self.component_list)))
@@ -225,6 +226,7 @@ class BOMCircuit(Circuit):
         #Sort list
         self.component_list.sort()
         #self.unique_components.sort()
+        return self.getComponentList()
 
     def _isComponentUnique(self, comp):
         '''
@@ -233,9 +235,3 @@ class BOMCircuit(Circuit):
         '''
         return not (comp in self.component_list)
     
-    def _addComponentToLists(self, comp):
-        '''
-        @brief Adds a parsed component to the component lists and updates the unique component list
-        @param comp A BOMComponent to add
-        '''
-        self.component_list.append(comp)

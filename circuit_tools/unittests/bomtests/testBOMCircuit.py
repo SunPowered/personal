@@ -14,7 +14,7 @@ class CircuitComponentTest(unittest.TestCase):
     
     Each circuit should be able to parse a schematic file
     
-    Each circuit should store and maintain a components_list and unique_components_list
+    Each circuit should store and maintain a components_list 
     
     No variables allowed when parsingComponents
     
@@ -25,7 +25,8 @@ class CircuitComponentTest(unittest.TestCase):
     Tests all basic functionality of the Circuit class.
     
     The following tests must be passed:
-        1. A parseVariables function to check whether any variables exist
+        1. A parseComponents function to read the schematic file and create a BOMComponentList from the parsed result
+        2. 
         
         
     '''
